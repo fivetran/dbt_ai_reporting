@@ -1,0 +1,4 @@
+packages:
+  - local: ../../Claude/dbt_claude
+
+  - local: ../../OpenAI/dbt_openai

@@ -1,0 +1,13 @@
+name: 'ai_reporting'
+version: '0.1.0'
+
+config-version: 2
+require-dbt-version: [">=1.3.0", "<3.0.0"]
+
+models:
+  ai_reporting:
+    +materialized: table
+    +schema: ai_reporting
+    intermediate:
+      +materialized: ephemeral
+      +schema: int_ai_reporting

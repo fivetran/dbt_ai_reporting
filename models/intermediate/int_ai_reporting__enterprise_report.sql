@@ -60,14 +60,7 @@ unioned as (
     union all
     select * from openai
 
-),
-
-final as (
-
-    select *
-    from unioned
-
 )
 
 select *
-from final
+from unioned

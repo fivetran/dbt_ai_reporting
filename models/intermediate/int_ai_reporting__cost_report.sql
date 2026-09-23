@@ -10,8 +10,6 @@ with claude as (
         'claude' as platform,
         workspace_id as account_id,
         workspace_name as account_name,
-        {# api_key_id,
-        api_key_name, #}
         model,
         model_family,
         model_variant,
@@ -33,8 +31,6 @@ openai as (
         'openai' as platform,
         project_id as account_id,
         project_name as account_name,
-        {# cast(null as {{ dbt.type_string() }}) as api_key_id,
-        cast(null as {{ dbt.type_string() }}) as api_key_name, #}
         model,
         model_family,
         model_variant,
@@ -54,14 +50,7 @@ unioned as (
     union all
     select * from openai
 
-),
-
-final as (
-
-    select *
-    from unioned
-
 )
 
 select *
-from final
+from unioned

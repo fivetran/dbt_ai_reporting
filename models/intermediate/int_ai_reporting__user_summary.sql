@@ -48,7 +48,7 @@ openai as (
         actor_user_id as user_id,
         email,
         name,
-        cast(null as {{ dbt.type_boolean() }}) as is_user_deleted,
+        cast(null as {{ dbt.type_boolean() }}) as is_user_deleted, -- asking catherine to add this in 
         role,
         project_count as count_account_scopes,
         project_names as account_scope_names,
@@ -60,6 +60,7 @@ openai as (
         month_to_date_tokens,
         lifetime_num_model_requests,
         month_to_date_num_model_requests,
+        -- may bring these back in if we can get them from the compliance tables
         cast(null as {{ dbt.type_float() }}) as lifetime_claude_cost,
         cast(null as {{ dbt.type_float() }}) as month_to_date_claude_cost,
         cast(null as {{ dbt.type_float() }}) as lifetime_claude_list_cost,
@@ -83,14 +84,7 @@ unioned as (
     union all
     select * from openai
 
-),
-
-final as (
-
-    select *
-    from unioned
-
 )
 
 select *
-from final
+from unioned

@@ -8,10 +8,10 @@ with claude as (
         source_relation,
         date_day,
         'claude' as platform,
-        organization_id,
-        organization_name,
-        cast(null as {{ dbt.type_string() }}) as project_id,
-        cast(null as {{ dbt.type_string() }}) as project_name,
+        {# organization_id,
+        organization_name, #}
+        {# cast(null as {{ dbt.type_string() }}) as project_id,
+        cast(null as {{ dbt.type_string() }}) as project_name, #}
         actor_user_id,
         actor_email,
         actor_name,
@@ -34,10 +34,10 @@ openai as (
         source_relation,
         date_day,
         'openai' as platform,
-        cast(null as {{ dbt.type_string() }}) as organization_id,
+        {# cast(null as {{ dbt.type_string() }}) as organization_id,
         cast(null as {{ dbt.type_string() }}) as organization_name,
         project_id,
-        project_name,
+        project_name, #}
         actor_user_id,
         actor_email,
         cast(null as {{ dbt.type_string() }}) as actor_name,

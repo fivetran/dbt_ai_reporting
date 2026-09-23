@@ -4,15 +4,13 @@ models:
   - name: ai_reporting__cost_report
     description: >
       Combined Claude + OpenAI cost and usage report. One row per platform, source_relation,
-      date_day, account (workspace for claude, project for openai), api_key (claude only),
-      model, cost_type, and token_unit_type. cost is real USD on both platforms and is safe to
-      sum across platforms. openai reports 'tokens' cost with no token-type split, so it is
-      allocated across token_unit_type by each type's share of that slice's tokens; a 'tokens'
-      cost with no matching token breakdown keeps its full amount at token_unit_type = null and
-      attribution_method = 'unallocated' rather than being dropped.
+      date_day, account (workspace for claude, project for openai), model, cost_type, and
+      token_unit_type. cost is real USD on both platforms and is safe to sum across platforms.
+      openai's cost endpoint already splits cost per token_unit_type, so no allocation happens
+      here.
     columns:
       - name: ai_reporting_cost_report_id
-        description: Surrogate key derived from platform, source_relation, date_day, account_id, api_key_id, model, cost_type, and token_unit_type.
+        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, and token_unit_type.
         tests:
           - not_null
           - unique
@@ -32,10 +30,6 @@ models:
         description: The workspace id (claude) or project id (openai) this cost or usage rolled up to.
       - name: account_name
         description: The workspace name (claude) or project name (openai) this cost or usage rolled up to.
-      - name: api_key_id
-        description: Claude API key id this cost was attributed to. Always null on openai rows -- openai's cost report has no api-key-level grain.
-      - name: api_key_name
-        description: Name of the claude API key this cost was attributed to. Always null on openai rows.
       - name: model
         description: "{{ doc('model') }}"
       - name: model_family
@@ -45,25 +39,26 @@ models:
       - name: cost_type
         description: The vendor's own charge category for this row (e.g. `tokens`, `web_search`, `other`). Vendor-specific; not normalized across platforms.
       - name: token_unit_type
-        description: The metered token type this row covers (`input`, `output`, `cache_read`, etc.), or null on non-token cost (e.g. `cost_type = 'other'`) or on an openai `'tokens'` cost row with no matching token breakdown (`attribution_method = 'unallocated'`).
+        description: The metered token type this row covers (`input`, `output`, `cache_read`, etc.), or null on non-token cost (e.g. `cost_type = 'other'`).
       - name: unit_quantity
         description: Token volume for this row's token_unit_type. Null when token_unit_type is null.
       - name: cost
-        description: Cost for this row in the currency column. Real USD on both platforms. On openai rows with cost_type = 'tokens', this is allocated across token_unit_type by that type's token share.
+        description: Cost for this row in the currency column. Real USD on both platforms.
       - name: currency
         description: "{{ doc('currency') }}"
       - name: attribution_method
-        description: How this row's cost was attributed (e.g. claude's `token_share`/`unallocated`, openai's `direct`/`allocated`/`unallocated`/`mixed`) -- vendor-specific wording, not normalized across platforms.
+        description: How this row's cost was attributed -- vendor-specific wording, not normalized across platforms.
 
   - name: ai_reporting__code_report
     description: >
       Combined Claude Code + Codex CLI usage report. One row per platform, source_relation,
-      date_day, and user. claude_estimated_cost is USD; openai_credits is OpenAI's own credit
-      unit with no published USD conversion -- the two are not comparable and are kept as
-      separate columns.
+      date_day, and user. estimated_cost is USD on claude rows always; on openai rows it's
+      populated only when the openai_credit_rate var is set (converting Codex credits to an
+      estimated USD figure), otherwise null. credits is OpenAI's own credit unit with no
+      published USD conversion -- always null on claude rows.
     columns:
       - name: ai_reporting_code_report_id
-        description: Surrogate key derived from platform, source_relation, date_day, user_id, and actor_email.
+        description: Surrogate key derived from platform, source_relation, date_day, user_id, and user_email.
         tests:
           - not_null
           - unique
@@ -81,22 +76,12 @@ models:
           - not_null
       - name: user_id
         description: "{{ doc('user_id') }}"
-      - name: actor_email
+      - name: user_email
         description: Email address of the person this row is attributed to.
-      - name: count_sessions
-        description: Number of Claude Code sessions. Always null on openai rows -- Codex has no equivalent session concept.
-      - name: count_commits
-        description: Number of commits made by Claude Code. Always null on openai rows.
-      - name: count_pull_requests
-        description: Number of pull requests opened by Claude Code. Always null on openai rows.
       - name: count_lines_of_code_added
         description: Lines of code added by the coding assistant.
       - name: count_lines_of_code_removed
         description: Lines of code removed by the coding assistant.
-      - name: count_threads
-        description: Number of Codex CLI threads. Always null on claude rows -- Claude Code has no equivalent thread concept.
-      - name: count_turns
-        description: Number of Codex CLI turns. Always null on claude rows.
       - name: count_models_used
         description: >
           Distinct models used. On claude rows this is an approximate sum across the day's
@@ -106,18 +91,16 @@ models:
         description: Input tokens consumed.
       - name: tokens_output
         description: Output tokens generated.
-      - name: tokens_cache_creation
-        description: Tokens used to create a prompt cache. Always null on openai rows -- Codex does not report this separately.
       - name: tokens_cache_read
         description: Tokens read from a prompt cache.
       - name: total_tokens
         description: Sum of all token types reported for this row.
-      - name: claude_estimated_cost
-        description: Claude Code's estimated cost in claude_estimated_cost_currency. Always null on openai rows.
-      - name: claude_estimated_cost_currency
+      - name: estimated_cost
+        description: Estimated cost in estimated_cost_currency. Always populated on claude rows; on openai rows, populated only when the openai_credit_rate var is set.
+      - name: estimated_cost_currency
         description: "{{ doc('currency') }}"
-      - name: openai_credits
-        description: Codex usage in OpenAI credits -- not USD, and not directly comparable to claude_estimated_cost. Always null on claude rows.
+      - name: credits
+        description: Codex usage in OpenAI credits -- not USD, and not directly comparable to estimated_cost. Always null on claude rows.
 
   - name: ai_reporting__enterprise_report
     description: >

@@ -4,9 +4,9 @@ In creating this package, which is meant for a wide range of use cases, we had t
 
 ## Credits vs. USD in `ai_reporting__code_report`
 
-Claude Code reports its own usage cost in USD, while Codex CLI (OpenAI) reports usage in OpenAI credits, a unit OpenAI does not publish a dollars-per-credit conversion rate for. Because there is no reliable way to convert credits into USD, we do not combine these two figures into a single cost column.
+Claude Code reports its own usage cost in USD, while Codex CLI (OpenAI) reports usage in OpenAI credits, a unit OpenAI does not publish a dollars-per-credit conversion rate for. Because there is no package-provided way to convert credits into USD, we do not combine these two figures automatically.
 
-Instead, `ai_reporting__code_report` keeps `claude_estimated_cost` (USD, populated only on Claude rows) and `openai_credits` (OpenAI's credit unit, populated only on OpenAI rows) as two separate columns. If you need a single blended cost figure across both platforms, you will need to apply your own credit-to-dollar conversion outside this package.
+`ai_reporting__code_report` keeps `credits` (OpenAI's credit unit, populated only on OpenAI rows) as its own column. `estimated_cost` is always populated in USD on Claude rows; on OpenAI rows it stays null unless you set the `openai_credit_rate` var to your own credits-to-dollars rate, in which case it's `credits * openai_credit_rate`. Since that rate is customer-supplied rather than something OpenAI publishes, treat any resulting OpenAI `estimated_cost` as an approximation, not a billed figure.
 
 ## Missing cost column on OpenAI's enterprise usage and user summary reports
 

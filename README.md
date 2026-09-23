@@ -38,8 +38,8 @@ By default, this package materializes the following final tables:
 
 | Table | Description |
 | :---- | :---- |
-| [`ai_reporting__cost_report`](link TBD) | One row per platform, source_relation, date_day, account (workspace for Claude, project for OpenAI), api_key (Claude only), model, cost_type, and token_unit_type. Combines Claude and OpenAI cost and token usage; cost is real USD on both platforms.<br><br>**Example Analytics Questions:**<ul><li>How does token cost compare between Claude and OpenAI for the same time period?</li><li>Which models or workspaces are driving the most spend?</li><li>How is spend trending week over week across both vendors?</li></ul> |
-| [`ai_reporting__code_report`](link TBD) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI usage, including sessions, commits, and pull requests on Claude and threads and turns on OpenAI, with tokens on both. Claude cost (USD) and OpenAI credits (a separate, non-USD unit) are kept as distinct columns.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
+| [`ai_reporting__cost_report`](link TBD) | One row per platform, source_relation, date_day, account (workspace for Claude, project for OpenAI), model, cost_type, and token_unit_type. Combines Claude and OpenAI cost and token usage; cost is real USD on both platforms.<br><br>**Example Analytics Questions:**<ul><li>How does token cost compare between Claude and OpenAI for the same time period?</li><li>Which models or workspaces are driving the most spend?</li><li>How is spend trending week over week across both vendors?</li></ul> |
+| [`ai_reporting__code_report`](link TBD) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI lines-of-code and token usage. Claude cost is always in USD; OpenAI's `estimated_cost` is null unless you set `openai_credit_rate` to convert its credits into an estimated USD figure, and OpenAI credits are always available in their own column.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
 | [`ai_reporting__enterprise_report`](link TBD) | One row per platform, source_relation, date_day, actor, model, and product. Combines Claude and OpenAI enterprise (seat-level) usage; cost is populated only on Claude rows.<br><br>**Example Analytics Questions:**<ul><li>Which products (chat, Claude Code, etc.) are seeing the most usage per actor?</li><li>How does seat-level usage vary across models?</li><li>Which actors are the heaviest enterprise users on each platform?</li></ul> |
 | [`ai_reporting__user_summary`](link TBD) | One row per platform, source_relation, and user. Combines lifetime and month-to-date usage summaries; tokens and active days are populated on both platforms, cost only on Claude.<br><br>**Example Analytics Questions:**<ul><li>Who are your most active users across both AI platforms?</li><li>How does a user's month-to-date usage compare to their lifetime usage?</li><li>How many active days has each user logged this month?</li></ul> |
 
@@ -121,6 +121,16 @@ vars:
 
 ##### Optional: Incorporate unioned sources into DAG
 If you use [Fivetran Transformations for dbt Core™](https://fivetran.com/docs/transformations/dbt#transformationsfordbtcore) and are unioning multiple Claude or OpenAI connections, you can define your sources in a property `.yml` file. Set the variable `has_defined_sources: true` in your `dbt_project.yml`. Otherwise, your connections won't appear in your DAG. See the `union_connections` macro [documentation](https://github.com/fivetran/dbt_fivetran_utils/tree/releases/v0.4.latest#optional-union-connections-defined-sources-configuration) for full configuration details.
+
+##### Optional: Estimate OpenAI Codex cost in USD
+`ai_reporting__code_report` leaves `estimated_cost` null on OpenAI rows by default, since OpenAI's Codex credits have no published USD conversion rate. If you want an approximate USD figure anyway, set your own credits-to-dollars rate:
+```yml
+# dbt_project.yml
+
+vars:
+  openai_credit_rate: 0.04 # your own credits-to-USD rate; estimated_cost = credits * openai_credit_rate
+```
+This is a customer-supplied estimate, not a value OpenAI publishes -- see [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) for context.
 
 ## Opinionated modeling decisions
 Building a package that combines two independently designed source packages required a few opinionated calls, for example how we handle Claude's USD cost alongside OpenAI's non-USD credit unit, and how we roll up Claude Code's grain to match Codex CLI's. We've documented these choices in [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) and welcome feedback on them.

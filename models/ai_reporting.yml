@@ -125,14 +125,6 @@ models:
         description: "{{ doc('date_day') }}"
         tests:
           - not_null
-      - name: organization_id
-        description: Claude organization id. Always null on openai rows -- openai's enterprise report has no organization-level dimension.
-      - name: organization_name
-        description: Claude organization name. Always null on openai rows.
-      - name: project_id
-        description: OpenAI project id. Always null on claude rows -- this report has no project-level dimension on the claude side.
-      - name: project_name
-        description: OpenAI project name. Always null on claude rows.
       - name: actor_user_id
         description: "{{ doc('user_id') }}"
       - name: actor_email
@@ -195,22 +187,10 @@ models:
         description: Number of workspaces (claude) or projects (openai) this user belongs to.
       - name: account_scope_names
         description: Comma-separated names of the workspaces (claude) or projects (openai) this user belongs to.
-      - name: is_workspace_admin
-        description: True if the user is an admin of at least one claude workspace. Always null on openai rows.
-      - name: is_workspace_developer
-        description: True if the user is a developer on at least one claude workspace. Always null on openai rows.
-      - name: project_role_count
-        description: Number of distinct openai project roles held. Always null on claude rows.
-      - name: project_role_names
-        description: Comma-separated names of the openai project roles held. Always null on claude rows.
       - name: lifetime_tokens
         description: Total tokens attributed to this user since their first billed or active day.
       - name: month_to_date_tokens
         description: Total tokens attributed to this user in the current calendar month.
-      - name: lifetime_num_model_requests
-        description: Total model requests attributed to this user. Always null on claude rows -- claude's user summary tracks cost and tokens, not a request count, at this grain.
-      - name: month_to_date_num_model_requests
-        description: Model requests attributed to this user in the current calendar month. Always null on claude rows.
       - name: lifetime_claude_cost
         description: Lifetime claude cost in USD. Always null on openai rows.
       - name: month_to_date_claude_cost

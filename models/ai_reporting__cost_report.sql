@@ -16,6 +16,8 @@ final as (
         date_day,
         account_id,
         account_name,
+        api_key_id, -- null for openai
+        api_key_name,
         model,
         model_family,
         model_variant,

@@ -1,0 +1,219 @@
+version: 2
+
+models:
+  - name: ai_reporting__cost_report
+    description: >
+      Combined Claude + OpenAI cost and usage report. One row per platform, source_relation,
+      date_day, account (workspace for claude, project for openai), model, cost_type, and
+      token_unit_type. cost is real USD on both platforms and is safe to sum across platforms.
+      openai's cost endpoint already splits cost per token_unit_type, so no allocation happens
+      here.
+    columns:
+      - name: ai_reporting_cost_report_id
+        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, and token_unit_type.
+        tests:
+          - not_null
+          - unique
+      - name: platform
+        description: "{{ doc('platform') }}"
+        tests:
+          - not_null
+      - name: source_relation
+        description: "{{ doc('source_relation') }}"
+        tests:
+          - not_null
+      - name: date_day
+        description: "{{ doc('date_day') }}"
+        tests:
+          - not_null
+      - name: account_id
+        description: The workspace id (claude) or project id (openai) this cost or usage rolled up to.
+      - name: account_name
+        description: The workspace name (claude) or project name (openai) this cost or usage rolled up to.
+      - name: model
+        description: "{{ doc('model') }}"
+      - name: model_family
+        description: "{{ doc('model_family') }}"
+      - name: model_variant
+        description: "{{ doc('model_variant') }}"
+      - name: cost_type
+        description: The vendor's own charge category for this row (e.g. `tokens`, `web_search`, `other`). Vendor-specific; not normalized across platforms.
+      - name: token_unit_type
+        description: The metered token type this row covers (`input`, `output`, `cache_read`, etc.), or null on non-token cost (e.g. `cost_type = 'other'`).
+      - name: unit_quantity
+        description: Token volume for this row's token_unit_type. Null when token_unit_type is null.
+      - name: cost
+        description: Cost for this row in the currency column. Real USD on both platforms.
+      - name: currency
+        description: "{{ doc('currency') }}"
+      - name: attribution_method
+        description: How this row's cost was attributed -- vendor-specific wording, not normalized across platforms.
+
+  - name: ai_reporting__code_report
+    description: >
+      Combined Claude Code + Codex CLI usage report. One row per platform, source_relation,
+      date_day, and user. estimated_cost is USD on claude rows always; on openai rows it's
+      populated only when the openai_credit_rate var is set (converting Codex credits to an
+      estimated USD figure), otherwise null. credits is OpenAI's own credit unit with no
+      published USD conversion -- always null on claude rows.
+    columns:
+      - name: ai_reporting_code_report_id
+        description: Surrogate key derived from platform, source_relation, date_day, user_id, and user_email.
+        tests:
+          - not_null
+          - unique
+      - name: platform
+        description: "{{ doc('platform') }}"
+        tests:
+          - not_null
+      - name: source_relation
+        description: "{{ doc('source_relation') }}"
+        tests:
+          - not_null
+      - name: date_day
+        description: "{{ doc('date_day') }}"
+        tests:
+          - not_null
+      - name: user_id
+        description: "{{ doc('user_id') }}"
+      - name: user_email
+        description: Email address of the person this row is attributed to.
+      - name: count_lines_of_code_added
+        description: Lines of code added by the coding assistant.
+      - name: count_lines_of_code_removed
+        description: Lines of code removed by the coding assistant.
+      - name: count_models_used
+        description: >
+          Distinct models used. On claude rows this is an approximate sum across the day's
+          terminal-type breakdown rather than a true distinct count once rolled up to this
+          grain -- see DECISIONLOG.md.
+      - name: tokens_input
+        description: Input tokens consumed.
+      - name: tokens_output
+        description: Output tokens generated.
+      - name: tokens_cache_read
+        description: Tokens read from a prompt cache.
+      - name: total_tokens
+        description: Sum of all token types reported for this row.
+      - name: estimated_cost
+        description: Estimated cost in estimated_cost_currency. Always populated on claude rows; on openai rows, populated only when the openai_credit_rate var is set.
+      - name: estimated_cost_currency
+        description: "{{ doc('currency') }}"
+      - name: credits
+        description: Codex usage in OpenAI credits -- not USD, and not directly comparable to estimated_cost. Always null on claude rows.
+
+  - name: ai_reporting__enterprise_report
+    description: >
+      Combined Claude + OpenAI enterprise (seat-level) usage report. One row per platform,
+      source_relation, date_day, actor, model, and product. cost is USD and populated only on
+      claude rows -- openai's enterprise usage report carries no cost column today.
+    columns:
+      - name: ai_reporting_enterprise_report_id
+        description: Surrogate key derived from platform, source_relation, date_day, actor_user_id, model, product, and unit_type.
+        tests:
+          - not_null
+          - unique
+      - name: platform
+        description: "{{ doc('platform') }}"
+        tests:
+          - not_null
+      - name: source_relation
+        description: "{{ doc('source_relation') }}"
+        tests:
+          - not_null
+      - name: date_day
+        description: "{{ doc('date_day') }}"
+        tests:
+          - not_null
+      - name: actor_user_id
+        description: "{{ doc('user_id') }}"
+      - name: actor_email
+        description: Email address of the person this row is attributed to.
+      - name: actor_name
+        description: Display name of the person this row is attributed to. Always null on openai rows.
+      - name: product
+        description: The vendor's product surface this usage came from (e.g. `claude_code`, `chat`).
+      - name: model
+        description: "{{ doc('model') }}"
+      - name: model_family
+        description: "{{ doc('model_family') }}"
+      - name: model_variant
+        description: "{{ doc('model_variant') }}"
+      - name: unit_type
+        description: The metered usage unit for this row (a token type, or the vendor's own quantity_unit).
+      - name: unit_quantity
+        description: Usage volume for this row's unit_type.
+      - name: num_model_requests
+        description: Number of model requests this row covers.
+      - name: cost
+        description: Cost for this row in the currency column. Always null on openai rows -- see model description.
+      - name: currency
+        description: "{{ doc('currency') }}"
+
+  - name: ai_reporting__user_summary
+    description: >
+      Combined Claude + OpenAI per-user lifetime and month-to-date summary. One row per
+      platform, source_relation, and user. Cost fields are USD and populated only on claude
+      rows -- openai's user summary carries no cost column today. Claude's product-specific
+      activity breakdown (chat/cowork/design/office) is not carried here -- query
+      claude__user_summary directly for that detail.
+    columns:
+      - name: ai_reporting_user_summary_id
+        description: Surrogate key derived from platform, source_relation, and user_id.
+        tests:
+          - not_null
+          - unique
+      - name: platform
+        description: "{{ doc('platform') }}"
+        tests:
+          - not_null
+      - name: source_relation
+        description: "{{ doc('source_relation') }}"
+        tests:
+          - not_null
+      - name: user_id
+        description: "{{ doc('user_id') }}"
+        tests:
+          - not_null
+      - name: email
+        description: Email address of the user.
+      - name: name
+        description: Display name of the user.
+      - name: is_user_deleted
+        description: True if the user has been deleted from the claude organization. Always null on openai rows.
+      - name: role
+        description: The user's organization-level role.
+      - name: count_account_scopes
+        description: Number of workspaces (claude) or projects (openai) this user belongs to.
+      - name: account_scope_names
+        description: Comma-separated names of the workspaces (claude) or projects (openai) this user belongs to.
+      - name: lifetime_tokens
+        description: Total tokens attributed to this user since their first billed or active day.
+      - name: month_to_date_tokens
+        description: Total tokens attributed to this user in the current calendar month.
+      - name: lifetime_claude_cost
+        description: Lifetime claude cost in USD. Always null on openai rows.
+      - name: month_to_date_claude_cost
+        description: Current month claude cost in USD. Always null on openai rows.
+      - name: lifetime_claude_list_cost
+        description: Lifetime claude list (undiscounted) cost in USD. Always null on openai rows.
+      - name: month_to_date_claude_list_cost
+        description: Current month claude list (undiscounted) cost in USD. Always null on openai rows.
+      - name: lifetime_claude_discount
+        description: Lifetime difference between claude list cost and actual cost. Always null on openai rows.
+      - name: lifetime_billed_days
+        description: Distinct days claude cost was billed to this user. Always null on openai rows.
+      - name: month_to_date_billed_days
+        description: Distinct days claude cost was billed to this user in the current calendar month. Always null on openai rows.
+      - name: first_billed_date
+        description: Earliest day claude cost was billed to this user. Always null on openai rows.
+      - name: last_billed_date
+        description: Most recent day claude cost was billed to this user. Always null on openai rows.
+      - name: lifetime_active_days
+        description: Distinct days this user was active on the platform.
+      - name: month_to_date_active_days
+        description: Distinct days this user was active on the platform in the current calendar month.
+      - name: first_active_date
+        description: Earliest day this user was active on the platform.
+      - name: last_active_date
+        description: Most recent day this user was active on the platform.

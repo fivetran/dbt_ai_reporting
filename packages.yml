@@ -1,0 +1,9 @@
+packages:
+  # - local: ../../Claude/dbt_claude
+
+  # - local: ../../OpenAI/dbt_openai
+  - git: "https://github.com/fivetran/dbt_claude.git"
+    revision: initial-build-snapshot
+    warn-unpinned: false
+  - git: "https://github.com/fivetran/dbt_openai.git"
+    revision: release/0.1.0

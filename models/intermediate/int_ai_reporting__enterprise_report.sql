@@ -1,16 +1,25 @@
--- One row per platform, source_relation, date_day, actor, model, and product. Cost is populated
--- only on claude rows -- openai's enterprise usage report carries no cost column today (see
--- DECISIONLOG.md).
+{% set claude_enabled = ai_reporting_claude_enterprise_enabled() %}
+{% set openai_enabled = ai_reporting_openai_enterprise_enabled() %}
+{% set enabled_ctes = [] %}
+{% if claude_enabled %}{% do enabled_ctes.append('claude') %}{% endif %}
+{% if openai_enabled %}{% do enabled_ctes.append('openai') %}{% endif %}
 
-with claude as (
+{{ config(enabled=claude_enabled or openai_enabled) }}
+
+-- One row per platform, source_relation, date_day, actor, model, and product
+
+with
+
+{% if claude_enabled %}
+claude as (
 
     select
         source_relation,
         date_day,
         'claude' as platform,
         actor_user_id,
-        actor_email,
-        actor_name,
+        {% if var('claude__using_enterprise_user_actor', True) %}actor_email{% else %}cast(null as {{ dbt.type_string() }}){% endif %} as actor_email,
+        {% if var('claude__using_enterprise_user_actor', True) %}actor_name{% else %}cast(null as {{ dbt.type_string() }}){% endif %} as actor_name,
         product,
         model,
         model_family,
@@ -23,7 +32,9 @@ with claude as (
     from {{ ref('claude__enterprise_cost_usage_report') }}
 
 ),
+{% endif %}
 
+{% if openai_enabled %}
 openai as (
 
     select
@@ -45,12 +56,14 @@ openai as (
     from {{ ref('openai__enterprise_user_report') }}
 
 ),
+{% endif %}
 
 unioned as (
 
-    select * from claude
-    union all
-    select * from openai
+    {% for cte in enabled_ctes %}
+    select * from {{ cte }}
+    {% if not loop.last %} union all {% endif %}
+    {% endfor %}
 
 )
 

@@ -6,13 +6,50 @@
 #   redshift: ">=1.3.0,<2.0.0"
 #   databricks: ">=1.6.0,<2.0.0"
 
-schema_variable_name: "ai_reporting_schema"
+schema_variable_name: "claude_schema"
+
+additional_schema_variables:
+  - "openai_schema"
 
 include_databricks_sql: false
 include_sqlserver: false
 include_dbt_compile: true
+include_duckdb: true
 
 test_scenarios:
   - name: "Default"
     vars: {}
     include_incremental: false
+
+  - name: "Credit Rate"
+    vars:
+      openai__code_report_credit_rate: 0.04
+    include_incremental: false
+
+  - name: "Compliance Disabled"
+    vars:
+      openai__using_compliance_cost: false
+      openai__using_compliance_users: false
+    include_incremental: false
+
+  - name: "Optional Claude tables disabled"
+    vars:
+      claude__using_organization: false
+      claude__using_workspace: false
+      claude__using_users: false
+      claude__using_enterprise_user_activity: false
+    include_incremental: false
+
+  - name: "Optional OpenAI tables disabled"
+    vars:
+      openai__using_project: false
+      openai__using_project_user: false
+      openai__using_invite: false
+      openai__using_codex_usage_model: false
+    include_incremental: false
+
+  - name: "MDLS"
+    vars:
+      fivetran_using_source_casing: true
+    include_incremental: false
+    include_dbt_seed: true

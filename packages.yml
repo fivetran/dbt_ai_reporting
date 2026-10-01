@@ -1,9 +1,6 @@
 packages:
-  # - local: ../../Claude/dbt_claude
+  - package: fivetran/claude
+    version: [">=0.1.0", "<0.2.0"]
 
-  # - local: ../../OpenAI/dbt_openai
-  - git: "https://github.com/fivetran/dbt_claude.git"
-    revision: initial-build-snapshot
-    warn-unpinned: false
-  - git: "https://github.com/fivetran/dbt_openai.git"
-    revision: release/0.1.0
+  - package: fivetran/openai
+    version: [">=0.1.0", "<0.2.0"]

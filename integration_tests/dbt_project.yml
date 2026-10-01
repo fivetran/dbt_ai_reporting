@@ -7,8 +7,8 @@ models:
   +persist_docs:
     relation: true
     columns: "{{ false if target.type in ('databricks') else true }}"
-  ai_reporting:
-    +schema: "{{ 'ai_reporting_integrations_tests_sqlw' if target.name == 'databricks-sql' else 'ai_reporting' }}"
+  # +schema: "{{ 'ai_reporting_integrations_tests_sqlw' if target.name == 'databricks-sql' else 'ai_reporting' }}"
+  +schema: "ai_reporting_{{ var('directed_schema','dev') }}"
 
 vars:
   claude:
@@ -379,3 +379,4 @@ dispatch:
 flags:
   send_anonymous_usage_stats: False
   use_colors: True
+  validate_macro_args: True

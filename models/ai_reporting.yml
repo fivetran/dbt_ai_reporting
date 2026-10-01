@@ -30,6 +30,10 @@ models:
         description: The workspace id (claude) or project id (openai) this cost or usage rolled up to.
       - name: account_name
         description: The workspace name (claude) or project name (openai) this cost or usage rolled up to.
+      - name: api_key_id
+        description: The API key id this cost was attributed to. Always null on openai rows.
+      - name: api_key_name
+        description: The API key name this cost was attributed to. Always null on openai rows.
       - name: model
         description: "{{ doc('model') }}"
       - name: model_family
@@ -53,7 +57,7 @@ models:
     description: >
       Combined Claude Code + Codex CLI usage report. One row per platform, source_relation,
       date_day, and user. estimated_cost is USD on claude rows always; on openai rows it's
-      populated only when the openai_credit_rate var is set (converting Codex credits to an
+      populated only when the openai__code_report_credit_rate var is set (converting Codex credits to an
       estimated USD figure), otherwise null. credits is OpenAI's own credit unit with no
       published USD conversion -- always null on claude rows.
     columns:
@@ -96,7 +100,7 @@ models:
       - name: total_tokens
         description: Sum of all token types reported for this row.
       - name: estimated_cost
-        description: Estimated cost in estimated_cost_currency. Always populated on claude rows; on openai rows, populated only when the openai_credit_rate var is set.
+        description: Estimated cost in estimated_cost_currency. Always populated on claude rows; on openai rows, populated only when the openai__code_report_credit_rate var is set.
       - name: estimated_cost_currency
         description: "{{ doc('currency') }}"
       - name: credits
@@ -180,7 +184,7 @@ models:
       - name: name
         description: Display name of the user.
       - name: is_user_deleted
-        description: True if the user has been deleted from the claude organization. Always null on openai rows.
+        description: True if the user has been deleted from the organization. Populated on both platforms.
       - name: role
         description: The user's organization-level role.
       - name: count_account_scopes

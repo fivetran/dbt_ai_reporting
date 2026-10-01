@@ -39,7 +39,7 @@ By default, this package materializes the following final tables:
 | Table | Description |
 | :---- | :---- |
 | [`ai_reporting__cost_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__cost_report) | One row per platform, source_relation, date_day, account (workspace for Claude, project for OpenAI), model, cost_type, and token_unit_type. Combines Claude and OpenAI cost and token usage; cost is real USD on both platforms.<br><br>**Example Analytics Questions:**<ul><li>How does token cost compare between Claude and OpenAI for the same time period?</li><li>Which models or workspaces are driving the most spend?</li><li>How is spend trending week over week across both vendors?</li></ul> |
-| [`ai_reporting__code_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__code_report) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI lines-of-code and token usage. Claude cost is always in USD; OpenAI's `estimated_cost` is null unless you set `openai_credit_rate` to convert its credits into an estimated USD figure, and OpenAI credits are always available in their own column.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
+| [`ai_reporting__code_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__code_report) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI lines-of-code and token usage. Claude cost is always in USD; OpenAI's `estimated_cost` is null unless you set `openai__code_report_credit_rate` to convert its credits into an estimated USD figure, and OpenAI credits are always available in their own column.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
 | [`ai_reporting__enterprise_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__enterprise_report) | One row per platform, source_relation, date_day, actor, model, and product. Combines Claude and OpenAI enterprise (seat-level) usage; cost is populated only on Claude rows.<br><br>**Example Analytics Questions:**<ul><li>Which products (chat, Claude Code, etc.) are seeing the most usage per actor?</li><li>How does seat-level usage vary across models?</li><li>Which actors are the heaviest enterprise users on each platform?</li></ul> |
 | [`ai_reporting__user_summary`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__user_summary) | One row per platform, source_relation, and user. Combines lifetime and month-to-date usage summaries; tokens and active days are populated on both platforms, cost only on Claude.<br><br>**Example Analytics Questions:**<ul><li>Who are your most active users across both AI platforms?</li><li>How does a user's month-to-date usage compare to their lifetime usage?</li><li>How many active days has each user logged this month?</li></ul> |
 
@@ -140,7 +140,7 @@ If you use [Fivetran Transformations for dbt Core™](https://fivetran.com/docs/
 # dbt_project.yml
 
 vars:
-  openai_credit_rate: 0.04 # your own credits-to-USD rate; estimated_cost = credits * openai_credit_rate
+  openai__code_report_credit_rate: 0.04 # your own credits-to-USD rate; estimated_cost = credits * openai__code_report_credit_rate
 ```
 This is a customer-supplied estimate, not a value OpenAI publishes -- see [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) for context.
 
@@ -172,25 +172,25 @@ OpenAI accounts differ significantly in which tables they sync — nearly every 
 
 ```yml
 vars:
-    openai_using_cost:                   false   # Disable if you are not syncing the cost table
-    openai_using_completion:             false   # Disable if you are not syncing the completion table
-    openai_using_embedding:              false   # Disable if you are not syncing the embedding table
-    openai_using_audio_transcription:    false   # Disable if you are not syncing the audio_transcription table
-    openai_using_audio_speech:           false   # Disable if you are not syncing the audio_speech table
-    openai_using_image:                  false   # Disable if you are not syncing the image table
-    openai_using_moderation:             false   # Disable if you are not syncing the moderation table
-    openai_using_web_search_call:        false   # Disable if you are not syncing the web_search_call table
-    openai_using_file_search_call:       false   # Disable if you are not syncing the file_search_call table
-    openai_using_codex_usage:            false   # Disable if you are not syncing the codex_usage table
-    openai_using_codex_usage_model:      false   # Disable if you are not syncing the codex_usage_model table
-    openai_using_project:                false   # Disable if you are not syncing the project table
-    openai_using_project_api_key:        false   # Disable if you are not syncing the project_api_key table
-    openai_using_project_user:           false   # Disable if you are not syncing the project_user table
-    openai_using_project_user_role:      false   # Disable if you are not syncing the project_user_role table
-    openai_using_project_role:           false   # Disable if you are not syncing the project_role table
-    openai_using_users_role:             false   # Disable if you are not syncing the users_role table
-    openai_using_groups:                 false   # Disable if you are not syncing the groups table
-    openai_using_invite:                 false   # Disable if you are not syncing the invite table
+    openai__using_cost:                   false   # Disable if you are not syncing the cost table
+    openai__using_completion:             false   # Disable if you are not syncing the completion table
+    openai__using_embedding:              false   # Disable if you are not syncing the embedding table
+    openai__using_audio_transcription:    false   # Disable if you are not syncing the audio_transcription table
+    openai__using_audio_speech:           false   # Disable if you are not syncing the audio_speech table
+    openai__using_image:                  false   # Disable if you are not syncing the image table
+    openai__using_moderation:             false   # Disable if you are not syncing the moderation table
+    openai__using_web_search_call:        false   # Disable if you are not syncing the web_search_call table
+    openai__using_file_search_call:       false   # Disable if you are not syncing the file_search_call table
+    openai__using_codex_usage:            false   # Disable if you are not syncing the codex_usage table
+    openai__using_codex_usage_model:      false   # Disable if you are not syncing the codex_usage_model table
+    openai__using_project:                false   # Disable if you are not syncing the project table
+    openai__using_project_api_key:        false   # Disable if you are not syncing the project_api_key table
+    openai__using_project_user:           false   # Disable if you are not syncing the project_user table
+    openai__using_project_user_role:      false   # Disable if you are not syncing the project_user_role table
+    openai__using_project_role:           false   # Disable if you are not syncing the project_role table
+    openai__using_users_role:             false   # Disable if you are not syncing the users_role table
+    openai__using_groups:                 false   # Disable if you are not syncing the groups table
+    openai__using_invite:                 false   # Disable if you are not syncing the invite table
 ```
 
 ### (Optional) Additional configurations

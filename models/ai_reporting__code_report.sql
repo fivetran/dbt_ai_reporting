@@ -1,5 +1,7 @@
+{{ config(enabled=ai_reporting_claude_code_enabled() or ai_reporting_openai_code_enabled()) }}
+
 -- One row per platform, source_relation, date_day, and user. estimated_cost is USD on claude
--- rows always; on openai rows it's populated only when the openai_credit_rate var is set
+-- rows always; on openai rows it's populated only when the openai__code_report_credit_rate var is set
 -- (converting Codex credits to an estimated USD figure), otherwise null. credits is OpenAI's own
 -- credit unit with no published USD conversion -- always null on claude rows.
 

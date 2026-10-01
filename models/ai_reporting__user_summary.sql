@@ -1,3 +1,5 @@
+{{ config(enabled=ai_reporting_claude_user_summary_enabled() or ai_reporting_openai_user_summary_enabled()) }}
+
 -- One row per platform, source_relation, and user. Cost fields are USD and populated only on
 -- claude rows -- openai's user summary carries no cost column today (see DECISIONLOG.md).
 
@@ -22,11 +24,11 @@ final as (
         account_scope_names,
         lifetime_tokens,
         month_to_date_tokens,
-        lifetime_claude_cost,
-        month_to_date_claude_cost,
-        lifetime_claude_list_cost,
-        month_to_date_claude_list_cost,
-        lifetime_claude_discount,
+        lifetime_cost,
+        month_to_date_cost,
+        lifetime_list_cost,
+        month_to_date_list_cost,
+        lifetime_discount,
         lifetime_billed_days,
         month_to_date_billed_days,
         first_billed_date,

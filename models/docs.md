@@ -1,5 +1,5 @@
 {% docs platform %}
-The AI vendor this row came from: `claude` or `openai`.
+The AI vendor this row came from.
 {% enddocs %}
 
 {% docs source_relation %}

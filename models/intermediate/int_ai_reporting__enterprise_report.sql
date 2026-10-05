@@ -49,11 +49,21 @@ openai as (
         model_family,
         model_variant,
         quantity_unit as unit_type,
-        quantity as unit_quantity,
-        num_model_requests,
+        sum(quantity) as unit_quantity,
+        sum(num_model_requests) as num_model_requests,
         cast(null as {{ dbt.type_float() }}) as cost,
         cast(null as {{ dbt.type_string() }}) as currency
     from {{ ref('openai__enterprise_user_report') }}
+    group by
+        source_relation,
+        date_day,
+        actor_user_id,
+        actor_email,
+        product,
+        model,
+        model_family,
+        model_variant,
+        quantity_unit
 
 ),
 {% endif %}

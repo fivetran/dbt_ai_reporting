@@ -22,6 +22,7 @@ final as (
         user_email,
         count_lines_of_code_added,
         count_lines_of_code_removed,
+        count_sessions,
         count_models_used,
         tokens_input,
         tokens_output,

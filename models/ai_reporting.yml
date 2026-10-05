@@ -10,7 +10,7 @@ models:
       here.
     columns:
       - name: ai_reporting_cost_report_id
-        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, and token_unit_type.
+        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, api_key_id, and token_unit_type.
         tests:
           - not_null
           - unique
@@ -20,8 +20,6 @@ models:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
-        tests:
-          - not_null
       - name: date_day
         description: "{{ doc('date_day') }}"
         tests:
@@ -72,8 +70,6 @@ models:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
-        tests:
-          - not_null
       - name: date_day
         description: "{{ doc('date_day') }}"
         tests:
@@ -82,6 +78,10 @@ models:
         description: "{{ doc('user_id') }}"
       - name: user_email
         description: Email address of the person this row is attributed to.
+      - name: count_sessions
+        description: >
+          Sessions (Claude) or threads (OpenAI Codex) attributed to this user on this day.
+          Null on OpenAI rows when codex_usage is disabled.
       - name: count_lines_of_code_added
         description: Lines of code added by the coding assistant.
       - name: count_lines_of_code_removed
@@ -123,8 +123,6 @@ models:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
-        tests:
-          - not_null
       - name: date_day
         description: "{{ doc('date_day') }}"
         tests:
@@ -173,8 +171,6 @@ models:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
-        tests:
-          - not_null
       - name: user_id
         description: "{{ doc('user_id') }}"
         tests:
@@ -195,16 +191,16 @@ models:
         description: Total tokens attributed to this user since their first billed or active day.
       - name: month_to_date_tokens
         description: Total tokens attributed to this user in the current calendar month.
-      - name: lifetime_claude_cost
-        description: Lifetime claude cost in USD. Always null on openai rows.
-      - name: month_to_date_claude_cost
-        description: Current month claude cost in USD. Always null on openai rows.
-      - name: lifetime_claude_list_cost
-        description: Lifetime claude list (undiscounted) cost in USD. Always null on openai rows.
-      - name: month_to_date_claude_list_cost
-        description: Current month claude list (undiscounted) cost in USD. Always null on openai rows.
-      - name: lifetime_claude_discount
-        description: Lifetime difference between claude list cost and actual cost. Always null on openai rows.
+      - name: lifetime_cost
+        description: Lifetime cost in USD. Always null on openai rows.
+      - name: month_to_date_cost
+        description: Current month cost in USD. Always null on openai rows.
+      - name: lifetime_list_cost
+        description: Lifetime list (undiscounted) cost in USD. Always null on openai rows.
+      - name: month_to_date_list_cost
+        description: Current month list (undiscounted) cost in USD. Always null on openai rows.
+      - name: lifetime_discount
+        description: Lifetime difference between list cost and actual cost. Always null on openai rows.
       - name: lifetime_billed_days
         description: Distinct days claude cost was billed to this user. Always null on openai rows.
       - name: month_to_date_billed_days

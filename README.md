@@ -53,7 +53,7 @@ Each Quickstart transformation job run materializes the following model counts f
 | ------------- | --------------- |
 | AI Reporting | 4 |
 | [Claude](https://github.com/fivetran/dbt_claude) | 30 |
-| [OpenAI](https://github.com/fivetran/dbt_openai) | 48 |
+| [OpenAI](https://github.com/fivetran/dbt_openai) | 49 |
 
 ---
 
@@ -285,7 +285,7 @@ models:
       +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
 ```
 
-The upstream Claude and OpenAI packages each build their own staging and intermediate schemas. To change those, add the following:
+The upstream [Claude](https://github.com/fivetran/dbt_claude#changing-the-build-schema) and [OpenAI](https://github.com/fivetran/dbt_openai#changing-the-build-schema) packages each build their own staging and intermediate schemas. To change those, add the following:
 
 ```yml
 models:

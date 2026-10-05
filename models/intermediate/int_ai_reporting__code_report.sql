@@ -26,6 +26,7 @@ claude as (
         cast(null as {{ dbt.type_string() }}) as user_id,
         {% endif %}
         actor_email as user_email,
+        sum(count_sessions) as count_sessions,
         sum(count_lines_of_code_added) as count_lines_of_code_added,
         sum(count_lines_of_code_removed) as count_lines_of_code_removed,
 
@@ -64,10 +65,12 @@ openai as (
         user_id,
         {% if var('openai__using_codex_usage', True) %}
         actor_email as user_email,
+        count_threads as count_sessions,
         count_lines_of_code_added,
         count_lines_of_code_removed,
         {% else %}
         cast(null as {{ dbt.type_string() }}) as user_email,
+        cast(null as {{ dbt.type_integer() }}) as count_sessions,
         cast(null as {{ dbt.type_integer() }}) as count_lines_of_code_added,
         cast(null as {{ dbt.type_integer() }}) as count_lines_of_code_removed,
         {% endif %}
@@ -83,7 +86,7 @@ openai as (
         cache_read_tokens as tokens_cache_read,
         coalesce(input_tokens, 0) + coalesce(output_tokens, 0) + coalesce(cache_read_tokens, 0) as total_tokens,
         {% if var('openai__code_report_credit_rate', []) != [] %}
-            credits * {{ var('openai__code_report_credit_rate', 1) }} as estimated_cost,
+            estimated_cost_amount as estimated_cost,
         {% else %}
             cast(null as {{ dbt.type_float() }}) as estimated_cost,
         {% endif %}

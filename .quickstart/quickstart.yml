@@ -12,7 +12,13 @@ multi_connector_config:
   openai:
     database_key: openai_database
     union_schema_key: openai_connections
+    public_models:
+      - openai__compliance_cost_report
     supported_vars:
+      openai__code_report_credit_rate:
+        type: string
+        description: "Currency amount per Codex credit, used to estimate OpenAI code report costs"
+        display_name: "Codex Credit Rate (USD per credit)"
       openai__cost_passthrough_metrics:
         type: dictionary
         description: "Additional numeric `COST` columns to sum into `openai__cost_usage_report`"
@@ -29,20 +35,14 @@ multi_connector_config:
         type: dictionary
         description: "Additional numeric `CODEX_USAGE_MODEL` columns to sum into `openai__code_report`"
         display_name: "Additional Codex Usage Model Metrics"
-      openai__code_report_credit_rate:
-        type: number
-        description: "Your credits-to-USD conversion rate for Codex CLI usage. When set, `estimated_cost` in `ai_reporting__code_report` is populated on OpenAI rows as `credits * openai__code_report_credit_rate`."
-        display_name: "Codex Credit Rate (USD per credit)"
       openai__compliance_cost_passthrough_metrics:
         type: dictionary
-        description: "Additional `COSTS_ORGANIZATION_LOG` columns to include in `stg_openai__compliance_cost`"
+        description: "Additional `COMPLIANCE_COSTS_ORGANIZATION_LOG` columns to include in `openai__compliance_cost_report`"
         display_name: "Additional Compliance Cost Columns"
       openai__compliance_cost_billing_passthrough_metrics:
         type: dictionary
         description: "Additional numeric `COSTS_ORGANIZATION_LOG_BILLING` columns to sum into `openai__compliance_cost_report`"
         display_name: "Additional Compliance Cost Billing Metrics"
-
-requires_dbt_seed: true
 
 table_variables:
   claude__using_cost_report:

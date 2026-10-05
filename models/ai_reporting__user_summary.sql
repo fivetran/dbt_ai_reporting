@@ -12,7 +12,7 @@ with user_summary as (
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'user_id']) }} as ai_reporting_user_summary_id,
+        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'user_id']) }} as user_summary_id,
         platform,
         source_relation,
         user_id,

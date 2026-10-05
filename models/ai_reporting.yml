@@ -9,7 +9,7 @@ models:
       openai's cost endpoint already splits cost per token_unit_type, so no allocation happens
       here.
     columns:
-      - name: ai_reporting_cost_report_id
+      - name: cost_report_id
         description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, api_key_id, and token_unit_type.
         tests:
           - not_null
@@ -59,7 +59,7 @@ models:
       estimated USD figure), otherwise null. credits is OpenAI's own credit unit with no
       published USD conversion -- always null on claude rows.
     columns:
-      - name: ai_reporting_code_report_id
+      - name: code_report_id
         description: Surrogate key derived from platform, source_relation, date_day, user_id, and user_email.
         tests:
           - not_null
@@ -112,7 +112,7 @@ models:
       source_relation, date_day, actor, model, and product. cost is USD and populated only on
       claude rows -- openai's enterprise usage report carries no cost column today.
     columns:
-      - name: ai_reporting_enterprise_report_id
+      - name: enterprise_report_id
         description: Surrogate key derived from platform, source_relation, date_day, actor_user_id, model, product, and unit_type.
         tests:
           - not_null
@@ -160,7 +160,7 @@ models:
       activity breakdown (chat/cowork/design/office) is not carried here -- query
       claude__user_summary directly for that detail.
     columns:
-      - name: ai_reporting_user_summary_id
+      - name: user_summary_id
         description: Surrogate key derived from platform, source_relation, and user_id.
         tests:
           - not_null

@@ -12,7 +12,7 @@ with enterprise_report as (
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'actor_user_id', 'model', 'product', 'unit_type']) }} as ai_reporting_enterprise_report_id,
+        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'actor_user_id', 'model', 'product', 'unit_type']) }} as enterprise_report_id,
         platform,
         source_relation,
         date_day,

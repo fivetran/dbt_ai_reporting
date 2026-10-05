@@ -12,6 +12,7 @@ This dbt package combines data from Fivetran's Claude and OpenAI dbt packages in
 - dbt package documentation
   - [GitHub repository](https://github.com/fivetran/dbt_ai_reporting)
   - [dbt Docs](https://fivetran.github.io/dbt_ai_reporting/#!/overview)
+  - [DAG](https://fivetran.github.io/dbt_ai_reporting/#!/overview?g_v=1)
   - [Changelog](https://github.com/fivetran/dbt_ai_reporting/blob/main/CHANGELOG.md)
 - dbt Core™ supported versions
   - `>=1.3.0, <3.0.0`
@@ -60,13 +61,13 @@ Each Quickstart transformation job run materializes the following model counts f
 ## Prerequisites
 To use this dbt package, you must have the following:
 
-- A Fivetran Claude/Anthropic connection **and** a Fivetran OpenAI connection both syncing data into your destination. This package is built to combine both platforms and does not support enabling only one.
+- At least one Fivetran Claude/Anthropic connection **or** Fivetran OpenAI connection syncing data into your destination. Each platform's models are conditionally enabled, so the package builds with only one platform active.
 - A **BigQuery**, **Snowflake**, **Redshift**, **PostgreSQL**, **Databricks**, or **DuckDB** destination.
 
 ## How do I use the dbt package?
 You can either add this dbt package in the Fivetran dashboard or import it into your dbt project:
 
-- To add the package in the Fivetran dashboard, follow our [Quickstart guide](https://fivetran.com/docs/transformations/data-models/quickstart-management#quickstartmanagement).
+- To add the package in the Fivetran dashboard, follow our [Quickstart guide](https://fivetran.com/docs/transformations/data-models/quickstart-management).
 - To add the package to your dbt project, follow the setup instructions below.
 
 ### Install the package
@@ -187,10 +188,10 @@ vars:
     openai__using_project_api_key:        false   # Disable if you are not syncing the project_api_key table
     openai__using_project_user:           false   # Disable if you are not syncing the project_user table
     openai__using_project_user_role:      false   # Disable if you are not syncing the project_user_role table
-    openai__using_project_role:           false   # Disable if you are not syncing the project_role table
     openai__using_users_role:             false   # Disable if you are not syncing the users_role table
-    openai__using_groups:                 false   # Disable if you are not syncing the groups table
     openai__using_invite:                 false   # Disable if you are not syncing the invite table
+    openai__using_compliance_cost:        false   # Disable if you are not syncing Compliance Platform cost data
+    openai__using_compliance_users:       false   # Disable if you are not syncing the Compliance Platform users table
 ```
 
 ### (Optional) Additional configurations
@@ -251,8 +252,10 @@ vars:
 ```yml
 vars:
   openai_model_family_overrides:
-    gpt-4o-mini: gpt-4o-mini      # keep gpt-4o-mini snapshots under their own family instead of folding into gpt-4o
-    codex-mini-latest: codex-mini # rename a specific model's family
+    - model: gpt-4o-mini        # keep gpt-4o-mini snapshots under their own family instead of folding into gpt-4o
+      family: gpt-4o-mini
+    - model: codex-mini-latest  # rename a specific model's family
+      family: codex-mini
 ```
 
 Keys are the exact model name as it appears in your data (trimmed, lowercased, with any `ft:` fine-tune wrapper removed). Overrides take precedence over built-in parsing rules.
@@ -346,18 +349,15 @@ Building a package that combines two independently designed source packages requ
 ## How is this package maintained and can I contribute?
 
 ### Package Maintenance
-The Fivetran team maintaining this package only maintains the latest version of the package. We highly recommend you stay consistent with the latest version and refer to the [CHANGELOG](https://github.com/fivetran/dbt_ai_reporting/blob/main/CHANGELOG.md) and release notes for more information on changes across versions.
+The Fivetran team maintaining this package only maintains the [latest version](https://hub.getdbt.com/fivetran/ai_reporting/latest/) of the package. We highly recommend you stay consistent with the latest version of the package and refer to the [CHANGELOG](https://github.com/fivetran/dbt_ai_reporting/blob/main/CHANGELOG.md) and release notes for more information on changes across versions.
 
 ### Contributions
 A small team of analytics engineers at Fivetran develops these dbt packages. However, the packages are made better by community contributions.
 
 We highly encourage and welcome contributions to this package. Learn how to contribute to a package in dbt's [Contributing to an external dbt package article](https://discourse.getdbt.com/t/contributing-to-a-dbt-package/657).
 
-#### Contributors
-We thank everyone who has taken the time to contribute. Each PR, bug report, and feature request has made this package better and is truly appreciated.
-
 <!--section-end-->
 
 ## Are there any resources available?
-- If you encounter any questions or want to reach out for help, see the [GitHub Issue](link TBD) section to find the right avenue of support for you.
-- If you would like to provide feedback to the dbt package team at Fivetran, or would like to request a future dbt package to be developed, then feel free to fill out our [Feedback Form](https://www.surveymonkey.com/r/DQ7K7WW).
+- If you have questions or want to reach out for help, see the [GitHub Issue](https://github.com/fivetran/dbt_ai_reporting/issues/new/choose) section to find the right avenue of support for you.
+- If you would like to provide feedback to the dbt package team at Fivetran or would like to request a new dbt package, fill out our [Feedback Form](https://www.surveymonkey.com/r/DQ7K7WW).

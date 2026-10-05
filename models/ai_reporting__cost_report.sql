@@ -12,7 +12,7 @@ with cost_report as (
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'account_id', 'model', 'cost_type', 'token_unit_type', 'api_key_id']) }} as ai_reporting_cost_report_id,
+        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'account_id', 'model', 'cost_type', 'token_unit_type', 'api_key_id']) }} as cost_report_id,
         platform,
         source_relation,
         date_day,

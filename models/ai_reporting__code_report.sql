@@ -14,7 +14,7 @@ with code_report as (
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'user_id', 'user_email']) }} as ai_reporting_code_report_id,
+        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'user_id', 'user_email']) }} as code_report_id,
         platform,
         source_relation,
         date_day,

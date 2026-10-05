@@ -68,7 +68,9 @@ To use this dbt package, you must have the following:
 You can either add this dbt package in the Fivetran dashboard or import it into your dbt project:
 
 - To add the package in the Fivetran dashboard, follow our [Quickstart guide](https://fivetran.com/docs/transformations/data-models/quickstart-management).
-- To add the package to your dbt project, follow the setup instructions below.
+- To add the package to your dbt project, follow the setup instructions in the dbt package's [README file](https://github.com/fivetran/dbt_ai_reporting/blob/main/README.md#how-do-i-use-the-dbt-package) to use this package.
+
+<!--section-end-->
 
 ### Install the package
 Include the following package version in your `packages.yml` file:
@@ -135,7 +137,7 @@ vars:
 ##### Optional: Incorporate unioned sources into DAG
 If you use [Fivetran Transformations for dbt Core™](https://fivetran.com/docs/transformations/dbt#transformationsfordbtcore) and are unioning multiple Claude or OpenAI connections, you can define your sources in a property `.yml` file. Set the variable `has_defined_sources: true` in your `dbt_project.yml`. Otherwise, your connections won't appear in your DAG. See the `union_connections` macro [documentation](https://github.com/fivetran/dbt_fivetran_utils/tree/releases/v0.4.latest#optional-union-connections-defined-sources-configuration) for full configuration details.
 
-##### Optional: Estimate OpenAI Codex cost in USD
+### Estimate OpenAI Codex cost in USD
 `ai_reporting__code_report` leaves `estimated_cost` null on OpenAI rows by default, since OpenAI's Codex credits have no published USD conversion rate. If you want an approximate USD figure anyway, set your own credits-to-dollars rate:
 ```yml
 # dbt_project.yml
@@ -146,13 +148,11 @@ vars:
 This is a customer-supplied estimate, not a value OpenAI publishes -- see [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) for context.
 
 ### Disable models for non-existent sources
-Your Claude or OpenAI connection might not sync every table this package expects. Disable the corresponding variable for any table you are not syncing so the package does not attempt to build models that depend on it.
-
-#### Claude
-By default, all variables are `true`. Disable only the tables you are not syncing:
+Your Claude or OpenAI connection might not sync every table this package expects. Disable the corresponding variable for any table you are not syncing so the package does not attempt to build models that depend on it. By default, all variables are `true`.
 
 ```yml
 vars:
+    ## Claude
     claude__using_cost_report: false                               # Disable if you do not have COST_REPORT synced.
     claude__using_enterprise_user_cost_report: false              # Disable if you do not have ENTERPRISE_USER_COST_REPORT synced.
     claude__using_message_usage_report: false                     # Disable if you do not have MESSAGE_USAGE_REPORT synced.
@@ -166,13 +166,8 @@ vars:
     claude__using_organization: false                             # Disable if you do not have ORGANIZATION synced.
     claude__using_workspace: false                                # Disable if you do not have WORKSPACE synced.
     claude__using_workspace_member: false                         # Disable if you do not have WORKSPACE_MEMBER synced.
-```
 
-#### OpenAI
-OpenAI accounts differ significantly in which tables they sync — nearly every table is optional. By default, all variables are `true`. Disable only the tables you are not syncing:
-
-```yml
-vars:
+    ## OpenAI
     openai__using_cost:                   false   # Disable if you are not syncing the cost table
     openai__using_completion:             false   # Disable if you are not syncing the completion table
     openai__using_embedding:              false   # Disable if you are not syncing the embedding table
@@ -194,56 +189,83 @@ vars:
     openai__using_compliance_users:       false   # Disable if you are not syncing the Compliance Platform users table
 ```
 
+### Changing the build schema
+
+By default, this package builds its final AI Reporting models in a schema titled (`<target_schema>` + `_ai_reporting`). The upstream [Claude](https://github.com/fivetran/dbt_claude#changing-the-build-schema) and [OpenAI](https://github.com/fivetran/dbt_openai#changing-the-build-schema) packages each build their own staging schemas titled (`<target_schema>` + `_claude/openai_staging`) and transform schemas titled (`<target_schema>` + `_claude/openai_reports`).
+
+To change where these models are written, add the following to your root `dbt_project.yml`:
+
+```yml
+models:
+    ai_reporting:
+      +schema: ai_reporting # Default suffix. Leave +schema: blank to use the default target_schema.
+    claude:
+      +schema: claude_reports # Default suffix
+      staging:
+        +schema: claude_staging # Default suffix
+    openai:
+      +schema: openai_reports # Default suffix
+      staging:
+        +schema: openai_staging # Default suffix
+```
+
 ### (Optional) Additional configurations
 <details open><summary>Expand/Collapse details</summary>
 
 #### Passing through additional fields
 
-Both upstream packages support bringing additional source columns through to their final models.
-
-**Claude**
-
-`claude__enterprise_user_activity_pass_through_metrics` adds numeric columns from the `ENTERPRISE_USER_ACTIVITY` source table. They are summed into `lifetime_<field>` and `month_to_date_<field>` columns in `claude__user_summary`, which flows through to `ai_reporting__user_summary`:
+Both upstream packages support bringing additional source columns through to their **platform-specific** transform models (not the combined `ai_reporting__*` models). Their variables accept the same format:
 
 ```yml
 # dbt_project.yml
 
 vars:
-  claude__enterprise_user_activity_pass_through_metrics:
+  pass_through_metric_var:
     - name: "that_field"
       alias: "renamed_to_this_field"
       transform_sql: "cast(renamed_to_this_field as string)"
     - name: "this_field"
+    - name: "other_field"
+      transform_sql: "other_field / 100.0"
 ```
 
-**OpenAI**
+`name` is the column name as it appears in the raw source table. `alias` and `transform_sql` are optional. If both are set, `transform_sql` should reference the `alias`, not the raw `name`.
 
-The following variables bring additional columns from their respective source tables into OpenAI's final models. Each field is summed at every aggregation point between its source table and the reports it feeds:
+**Claude**
+
+`claude__enterprise_user_activity_pass_through_metrics` adds numeric columns from the `ENTERPRISE_USER_ACTIVITY` source table. They are summed into `lifetime_<field>` and `month_to_date_<field>` columns in `claude__user_summary`:
 
 ```yml
 # dbt_project.yml
 
 vars:
-    openai__cost_passthrough_metrics: []
-    openai__completion_passthrough_metrics: []
-    openai__codex_usage_passthrough_metrics: []
-    openai__codex_usage_model_passthrough_metrics: []
-    openai__compliance_cost_passthrough_metrics: []
-    openai__compliance_cost_billing_passthrough_metrics: []
+  claude__enterprise_user_activity_pass_through_metrics: [] # Default = empty
 ```
 
-All six variables accept the same format:
+**OpenAI**
+
+Each OpenAI variable brings in columns from one source table and feeds them into a specific OpenAI transform model, aggregated as needed to reach that model's grain:
+
+| Variable | Source table | End model | Aggregation |
+| --- | --- | --- | --- |
+| `openai__cost_passthrough_metrics` | `cost` | `openai__cost_usage_report` | Summed |
+| `openai__completion_passthrough_metrics` | `completion` | `openai__cost_usage_report` | Summed |
+| `openai__codex_usage_passthrough_metrics` | `codex_usage` | `openai__code_report` | None (already at report grain) |
+| `openai__codex_usage_model_passthrough_metrics` | `codex_usage_model` | `openai__code_report` | Summed |
+| `openai__compliance_cost_passthrough_metrics` | `compliance_costs_organization_log` | `openai__compliance_cost_report` | None (constant per event; read with `max`) |
+| `openai__compliance_cost_billing_passthrough_metrics` | `compliance_costs_organization_log_billing` | `openai__compliance_cost_report` | Summed |
 
 ```yml
-vars:
-  openai__completion_passthrough_metrics:
-    - name: "field_id"
-      alias: "field_name"
-      transform_sql: "cast(field_name as int64)"
-    - name: "another_field_name"
-```
+# dbt_project.yml
 
-`name` is the column name as it appears in the raw source table. `alias` and `transform_sql` are optional. If both are set, `transform_sql` should reference the `alias`, not the raw `name`.
+vars:
+    openai__cost_passthrough_metrics: [] # Default = empty
+    openai__completion_passthrough_metrics: [] # Default = empty
+    openai__codex_usage_passthrough_metrics: [] # Default = empty
+    openai__codex_usage_model_passthrough_metrics: [] # Default = empty
+    openai__compliance_cost_passthrough_metrics: [] # Default = empty
+    openai__compliance_cost_billing_passthrough_metrics: [] # Default = empty
+```
 
 #### Model family overrides (OpenAI)
 
@@ -268,41 +290,10 @@ If a source table has a different name in your destination than the package expe
 ```yml
 vars:
     claude_<default_source_table_name>_identifier: your_table_name
-```
-See [`src_claude.yml`](https://github.com/fivetran/dbt_claude/blob/main/models/staging/src_claude.yml) for the expected default names.
 
-**OpenAI:**
-```yml
-vars:
     openai_<default_source_table_name>_identifier: your_table_name
 ```
-See [`dbt_project.yml`](https://github.com/fivetran/dbt_openai/blob/main/dbt_project.yml) for the expected default names.
-
-#### Changing the build schema
-
-By default, this package builds its final models in a schema titled (`<target_schema>` + `_ai_reporting`). To change where these models are written, add the following to your root `dbt_project.yml`:
-
-```yml
-models:
-    ai_reporting:
-      +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
-```
-
-The upstream [Claude](https://github.com/fivetran/dbt_claude#changing-the-build-schema) and [OpenAI](https://github.com/fivetran/dbt_openai#changing-the-build-schema) packages each build their own staging and intermediate schemas. To change those, add the following:
-
-```yml
-models:
-    claude:
-      +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
-      staging:
-        +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
-    openai:
-      +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
-      staging:
-        +schema: my_new_schema_name # Leave +schema: blank to use the default target_schema.
-```
-
-See the [Claude](https://github.com/fivetran/dbt_claude/blob/main/README.md) and [OpenAI](https://github.com/fivetran/dbt_openai/blob/main/README.md) package READMEs for the default schema names for each.
+See [`src_claude.yml`](https://github.com/fivetran/dbt_claude/blob/main/models/staging/src_claude.yml) and [`src_openai.yml`](https://github.com/fivetran/dbt_openai/blob/main/models/staging/src_openai.yml) for the expected default names.
 
 #### Source casing for case-sensitive destinations
 
@@ -341,15 +332,14 @@ packages:
       version: [">=1.0.0", "<2.0.0"]
 ```
 
-## Opinionated modeling decisions
-Building a package that combines two independently designed source packages required a few opinionated calls, for example how we handle Claude's USD cost alongside OpenAI's non-USD credit unit, and how we roll up Claude Code's grain to match Codex CLI's. We've documented these choices in [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) and welcome feedback on them.
-
-<!--section-end-->
 <!--section="ai_reporting_maintenance"-->
 ## How is this package maintained and can I contribute?
 
 ### Package Maintenance
 The Fivetran team maintaining this package only maintains the [latest version](https://hub.getdbt.com/fivetran/ai_reporting/latest/) of the package. We highly recommend you stay consistent with the latest version of the package and refer to the [CHANGELOG](https://github.com/fivetran/dbt_ai_reporting/blob/main/CHANGELOG.md) and release notes for more information on changes across versions.
+
+### Opinionated Decisions
+Building a package that combines two independently designed source packages required a few opinionated calls, for example how we handle Claude's USD cost alongside OpenAI's non-USD credit unit, and how we roll up Claude Code's grain to match Codex CLI's. We've documented these choices in [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) and welcome feedback on them.
 
 ### Contributions
 A small team of analytics engineers at Fivetran develops these dbt packages. However, the packages are made better by community contributions.

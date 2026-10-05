@@ -27,6 +27,7 @@ final as (
         tokens_input,
         tokens_output,
         tokens_cache_read,
+        tokens_cache_creation,
         total_tokens,
         estimated_cost,
         estimated_cost_currency,

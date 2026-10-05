@@ -97,6 +97,8 @@ models:
         description: Output tokens generated.
       - name: tokens_cache_read
         description: Tokens read from a prompt cache.
+      - name: tokens_cache_creation
+        description: Tokens written to a prompt cache. Always null on openai rows.
       - name: total_tokens
         description: Sum of all token types reported for this row.
       - name: estimated_cost

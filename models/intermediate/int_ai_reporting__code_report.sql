@@ -35,6 +35,7 @@ claude as (
         sum(tokens_input) as tokens_input,
         sum(tokens_output) as tokens_output,
         sum(tokens_cache_read) as tokens_cache_read,
+        sum(tokens_cache_creation) as tokens_cache_creation,
         sum(total_tokens) as total_tokens,
         sum(estimated_cost) as estimated_cost,
         max(estimated_cost_currency) as estimated_cost_currency,
@@ -43,6 +44,7 @@ claude as (
         cast(null as {{ dbt.type_integer() }}) as tokens_input,
         cast(null as {{ dbt.type_integer() }}) as tokens_output,
         cast(null as {{ dbt.type_integer() }}) as tokens_cache_read,
+        cast(null as {{ dbt.type_integer() }}) as tokens_cache_creation,
         cast(null as {{ dbt.type_integer() }}) as total_tokens,
         cast(null as {{ dbt.type_float() }}) as estimated_cost,
         cast(null as {{ dbt.type_string() }}) as estimated_cost_currency,
@@ -84,6 +86,7 @@ openai as (
         input_tokens as tokens_input,
         output_tokens as tokens_output,
         cache_read_tokens as tokens_cache_read,
+        cast(null as {{ dbt.type_integer() }}) as tokens_cache_creation,
         coalesce(input_tokens, 0) + coalesce(output_tokens, 0) + coalesce(cache_read_tokens, 0) as total_tokens,
         {% if var('openai__code_report_credit_rate', []) != [] %}
             estimated_cost_amount as estimated_cost,

@@ -40,12 +40,12 @@ claude as (
         sum(estimated_cost) as estimated_cost,
         max(estimated_cost_currency) as estimated_cost_currency,
         {% else %}
-        cast(null as {{ dbt.type_integer() }}) as count_models_used,
-        cast(null as {{ dbt.type_integer() }}) as tokens_input,
-        cast(null as {{ dbt.type_integer() }}) as tokens_output,
-        cast(null as {{ dbt.type_integer() }}) as tokens_cache_read,
-        cast(null as {{ dbt.type_integer() }}) as tokens_cache_creation,
-        cast(null as {{ dbt.type_integer() }}) as total_tokens,
+        cast(null as {{ dbt.type_int() }}) as count_models_used,
+        cast(null as {{ dbt.type_int() }}) as tokens_input,
+        cast(null as {{ dbt.type_int() }}) as tokens_output,
+        cast(null as {{ dbt.type_int() }}) as tokens_cache_read,
+        cast(null as {{ dbt.type_int() }}) as tokens_cache_creation,
+        cast(null as {{ dbt.type_int() }}) as total_tokens,
         cast(null as {{ dbt.type_float() }}) as estimated_cost,
         cast(null as {{ dbt.type_string() }}) as estimated_cost_currency,
         {% endif %}
@@ -72,21 +72,21 @@ openai as (
         count_lines_of_code_removed,
         {% else %}
         cast(null as {{ dbt.type_string() }}) as user_email,
-        cast(null as {{ dbt.type_integer() }}) as count_sessions,
-        cast(null as {{ dbt.type_integer() }}) as count_lines_of_code_added,
-        cast(null as {{ dbt.type_integer() }}) as count_lines_of_code_removed,
+        cast(null as {{ dbt.type_int() }}) as count_sessions,
+        cast(null as {{ dbt.type_int() }}) as count_lines_of_code_added,
+        cast(null as {{ dbt.type_int() }}) as count_lines_of_code_removed,
         {% endif %}
 
         {% if var('openai__using_codex_usage_model', True) %}
         count_models_used,
         {% else %}
-        cast(null as {{ dbt.type_integer() }}) as count_models_used,
+        cast(null as {{ dbt.type_int() }}) as count_models_used,
         {% endif %}
         
         input_tokens as tokens_input,
         output_tokens as tokens_output,
         cache_read_tokens as tokens_cache_read,
-        cast(null as {{ dbt.type_integer() }}) as tokens_cache_creation,
+        cast(null as {{ dbt.type_int() }}) as tokens_cache_creation,
         coalesce(input_tokens, 0) + coalesce(output_tokens, 0) + coalesce(cache_read_tokens, 0) as total_tokens,
         {% if var('openai__code_report_credit_rate', []) != [] %}
             estimated_cost_amount as estimated_cost,

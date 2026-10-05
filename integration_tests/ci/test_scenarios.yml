@@ -76,13 +76,16 @@ test_scenarios:
   - name: "Stress test vars"
     vars:
       # Nulls optional columns in Claude models
+      claude__using_organization: false
       claude__using_users: false
       claude__using_workspace: false
       claude__using_workspace_member: false
       claude__using_enterprise_user_activity: false
+      claude__using_api_key: false
       claude__using_claude_code_usage_report_model_breakdown: false
       # Nulls optional columns + partial reporting in OpenAI models
       openai__using_project: false
+      openai__using_invite: false
       openai__using_codex_usage_model: false
       openai__using_compliance_cost: false
       openai__using_compliance_users: false

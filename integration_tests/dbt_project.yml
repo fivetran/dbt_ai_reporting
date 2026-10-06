@@ -45,9 +45,7 @@ vars:
     openai_users_identifier: "openai_users"
     openai_project_user_identifier: "openai_project_user"
     openai_project_user_role_identifier: "openai_project_user_role"
-    openai_project_role_identifier: "openai_project_role"
     openai_users_role_identifier: "openai_users_role"
-    openai_groups_identifier: "openai_groups"
     openai_invite_identifier: "openai_invite"
     openai_compliance_costs_organization_log_identifier: "openai_compliance_costs_organization_log"
     openai_compliance_costs_log_file_identifier: "openai_compliance_costs_log_file"
@@ -360,10 +358,10 @@ seeds:
       +column_types:
         day: timestamp
         hour: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
-        text_input_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
-        text_cached_input_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
-        text_output_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
-        image_output_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
+        text_input_token: "{{ 'float64' if target.type == 'bigquery' else 'float' }}"
+        text_cached_input_token: "{{ 'float64' if target.type == 'bigquery' else 'float' }}"
+        text_output_token: "{{ 'float64' if target.type == 'bigquery' else 'float' }}"
+        image_output_token: "{{ 'float64' if target.type == 'bigquery' else 'float' }}"
     openai_compliance_costs_log_file:
       +column_types:
         end_time: timestamp

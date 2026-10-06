@@ -6,7 +6,7 @@
 
 {{ config(enabled=claude_enabled or openai_enabled) }}
 
--- One row per platform, source_relation, date_day, actor, model, and product
+-- One row per platform, source_relation, date_day, actor, model, product, and unit_type
 
 with
 

@@ -7,7 +7,7 @@
 {{ config(enabled=claude_enabled or openai_enabled) }}
 
 -- One row per platform, source_relation, and user. Scoped to the fields both platforms share
--- (identity, tokens, active days, cost where available); claude's product-specific activity
+-- (identity, tokens, active days, cost where available); Claude's product-specific activity
 -- breakdown (chat/cowork/design/office) is not carried here -- query claude__user_summary
 -- directly for that detail. See DECISIONLOG.md.
 

@@ -7,7 +7,7 @@ Before marking this PR as "ready for review":
 - The related issue is linked, tagged, and appropriately assigned  
 - Documentation and version updates are included, if applicable  
 - `docs` have been regenerated (unless there are no code or YAML changes)  
-- BuildKite integration tests are passing
+- Buildkite integration tests are passing
 -->
 
 ## PR Overview 

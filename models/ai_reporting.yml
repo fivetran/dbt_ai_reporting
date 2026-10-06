@@ -8,7 +8,7 @@ models:
       token_unit_type. cost is real USD on both platforms and is safe to sum across platforms.
     columns:
       - name: cost_report_id
-        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, api_key_id, and token_unit_type.
+        description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, token_unit_type, and api_key_id.
         tests:
           - not_null
           - unique

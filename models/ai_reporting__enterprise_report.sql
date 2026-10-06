@@ -1,6 +1,6 @@
 {{ config(enabled=ai_reporting_claude_enterprise_enabled() or ai_reporting_openai_enterprise_enabled()) }}
 
--- One row per platform, source_relation, date_day, actor, model, and product. cost is USD and
+-- One row per platform, source_relation, date_day, actor, model, product, and unit_type. cost is USD and
 -- populated only on claude rows -- see int_ai_reporting__enterprise_report.sql for why.
 
 with enterprise_report as (

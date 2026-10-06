@@ -3,7 +3,7 @@
 {% endmacro %}
 
 {% macro ai_reporting_openai_cost_enabled() %}
-    {{ return(var('openai__using_cost', True)) }}
+    {{ return(var('openai__using_cost', True) or var('openai__using_completion', True)) }}
 {% endmacro %}
 
 

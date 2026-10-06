@@ -25,11 +25,24 @@ claude as (
         model_family,
         model_variant,
         token_unit_type as unit_type,
-        unit_quantity,
-        request as num_model_requests,
-        claude_cost as cost,
-        currency
+        sum(unit_quantity) as unit_quantity,
+        sum(request) as num_model_requests,
+        sum(claude_cost) as cost,
+        max(currency) as currency
     from {{ ref('claude__enterprise_cost_usage_report') }}
+    group by
+        source_relation,
+        date_day,
+        actor_user_id,
+        {% if var('claude__using_enterprise_user_actor', True) %}
+        actor_email,
+        actor_name,
+        {% endif %}
+        product,
+        model,
+        model_family,
+        model_variant,
+        token_unit_type
 
 ),
 {% endif %}

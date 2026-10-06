@@ -4,10 +4,8 @@ models:
   - name: ai_reporting__cost_report
     description: >
       Combined Claude + OpenAI cost and usage report. One row per platform, source_relation,
-      date_day, account (workspace for claude, project for openai), model, cost_type, and
+      date_day, account (workspace for Claude, project for OpenAI), model, cost_type, and
       token_unit_type. cost is real USD on both platforms and is safe to sum across platforms.
-      openai's cost endpoint already splits cost per token_unit_type, so no allocation happens
-      here.
     columns:
       - name: cost_report_id
         description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, api_key_id, and token_unit_type.
@@ -25,13 +23,13 @@ models:
         tests:
           - not_null
       - name: account_id
-        description: The workspace id (claude) or project id (openai) this cost or usage rolled up to.
+        description: The workspace id (Claude) or project id (OpenAI) this cost or usage rolled up to.
       - name: account_name
-        description: The workspace name (claude) or project name (openai) this cost or usage rolled up to.
+        description: The workspace name (Claude) or project name (OpenAI) this cost or usage rolled up to.
       - name: api_key_id
-        description: The API key id this cost was attributed to. Always null on openai rows.
+        description: The API key id this cost was attributed to. Always null on OpenAI rows.
       - name: api_key_name
-        description: The API key name this cost was attributed to. Always null on openai rows.
+        description: The API key name this cost was attributed to. Always null on OpenAI rows.
       - name: model
         description: "{{ doc('model') }}"
       - name: model_family
@@ -54,10 +52,7 @@ models:
   - name: ai_reporting__code_report
     description: >
       Combined Claude Code + Codex CLI usage report. One row per platform, source_relation,
-      date_day, and user. estimated_cost is USD on claude rows always; on openai rows it's
-      populated only when the openai__code_report_credit_rate var is set (converting Codex credits to an
-      estimated USD figure), otherwise null. credits is OpenAI's own credit unit with no
-      published USD conversion -- always null on claude rows.
+      date_day, and user.
     columns:
       - name: code_report_id
         description: Surrogate key derived from platform, source_relation, date_day, user_id, and user_email.
@@ -88,7 +83,7 @@ models:
         description: Lines of code removed by the coding assistant.
       - name: count_models_used
         description: >
-          Distinct models used. On claude rows this is an approximate sum across the day's
+          Distinct models used. On Claude rows this is an approximate sum across the day's
           terminal-type breakdown rather than a true distinct count once rolled up to this
           grain -- see DECISIONLOG.md.
       - name: tokens_input
@@ -98,21 +93,21 @@ models:
       - name: tokens_cache_read
         description: Tokens read from a prompt cache.
       - name: tokens_cache_creation
-        description: Tokens written to a prompt cache. Always null on openai rows.
+        description: Tokens written to a prompt cache. Always null on OpenAI rows.
       - name: total_tokens
         description: Sum of all token types reported for this row.
       - name: estimated_cost
-        description: Estimated cost in estimated_cost_currency. Always populated on claude rows; on openai rows, populated only when the openai__code_report_credit_rate var is set.
+        description: Estimated cost in estimated_cost_currency. Always populated on Claude rows; on OpenAI rows, populated only when the openai__code_report_credit_rate var is set.
       - name: estimated_cost_currency
         description: "{{ doc('currency') }}"
       - name: credits
-        description: Codex usage in OpenAI credits -- not USD, and not directly comparable to estimated_cost. Always null on claude rows.
+        description: Codex usage in OpenAI credits -- not USD, and not directly comparable to estimated_cost. Always null on Claude rows.
 
   - name: ai_reporting__enterprise_report
     description: >
       Combined Claude + OpenAI enterprise (seat-level) usage report. One row per platform,
       source_relation, date_day, actor, model, and product. cost is USD and populated only on
-      claude rows -- openai's enterprise usage report carries no cost column today.
+      Claude rows -- OpenAI's enterprise usage report carries no cost column today.
     columns:
       - name: enterprise_report_id
         description: Surrogate key derived from platform, source_relation, date_day, actor_user_id, model, product, and unit_type.
@@ -134,7 +129,7 @@ models:
       - name: actor_email
         description: Email address of the person this row is attributed to.
       - name: actor_name
-        description: Display name of the person this row is attributed to. Always null on openai rows.
+        description: Display name of the person this row is attributed to. Always null on OpenAI rows.
       - name: product
         description: The vendor's product surface this usage came from (e.g. `claude_code`, `chat`).
       - name: model
@@ -150,15 +145,15 @@ models:
       - name: num_model_requests
         description: Number of model requests this row covers.
       - name: cost
-        description: Cost for this row in the currency column. Always null on openai rows -- see model description.
+        description: Cost for this row in the currency column. Always null on OpenAI rows -- see model description.
       - name: currency
         description: "{{ doc('currency') }}"
 
   - name: ai_reporting__user_summary
     description: >
       Combined Claude + OpenAI per-user lifetime and month-to-date summary. One row per
-      platform, source_relation, and user. Cost fields are USD and populated only on claude
-      rows -- openai's user summary carries no cost column today. Claude's product-specific
+      platform, source_relation, and user. Cost fields are USD and populated only on Claude
+      rows -- OpenAI's user summary carries no cost column today. Claude's product-specific
       activity breakdown (chat/cowork/design/office) is not carried here -- query
       claude__user_summary directly for that detail.
     columns:
@@ -186,31 +181,31 @@ models:
       - name: role
         description: The user's organization-level role.
       - name: count_account_scopes
-        description: Number of workspaces (claude) or projects (openai) this user belongs to.
+        description: Number of workspaces (Claude) or projects (OpenAI) this user belongs to.
       - name: account_scope_names
-        description: Comma-separated names of the workspaces (claude) or projects (openai) this user belongs to.
+        description: Comma-separated names of the workspaces (Claude) or projects (OpenAI) this user belongs to.
       - name: lifetime_tokens
         description: Total tokens attributed to this user since their first billed or active day.
       - name: month_to_date_tokens
         description: Total tokens attributed to this user in the current calendar month.
       - name: lifetime_cost
-        description: Lifetime cost in USD. Always null on openai rows.
+        description: Lifetime cost in USD. Always null on OpenAI rows.
       - name: month_to_date_cost
-        description: Current month cost in USD. Always null on openai rows.
+        description: Current month cost in USD. Always null on OpenAI rows.
       - name: lifetime_list_cost
-        description: Lifetime list (undiscounted) cost in USD. Always null on openai rows.
+        description: Lifetime list (undiscounted) cost in USD. Always null on OpenAI rows.
       - name: month_to_date_list_cost
-        description: Current month list (undiscounted) cost in USD. Always null on openai rows.
+        description: Current month list (undiscounted) cost in USD. Always null on OpenAI rows.
       - name: lifetime_discount
-        description: Lifetime difference between list cost and actual cost. Always null on openai rows.
+        description: Lifetime difference between list cost and actual cost. Always null on OpenAI rows.
       - name: lifetime_billed_days
-        description: Distinct days claude cost was billed to this user. Always null on openai rows.
+        description: Distinct days Claude cost was billed to this user. Always null on OpenAI rows.
       - name: month_to_date_billed_days
-        description: Distinct days claude cost was billed to this user in the current calendar month. Always null on openai rows.
+        description: Distinct days Claude cost was billed to this user in the current calendar month. Always null on OpenAI rows.
       - name: first_billed_date
-        description: Earliest day claude cost was billed to this user. Always null on openai rows.
+        description: Earliest day Claude cost was billed to this user. Always null on OpenAI rows.
       - name: last_billed_date
-        description: Most recent day claude cost was billed to this user. Always null on openai rows.
+        description: Most recent day Claude cost was billed to this user. Always null on OpenAI rows.
       - name: lifetime_active_days
         description: Distinct days this user was active on the platform.
       - name: month_to_date_active_days

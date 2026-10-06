@@ -1,14 +1,13 @@
-blank_issues_enabled: false
 contact_links:
-  - name: Share feedback on dbt packages
+  - name: Provide feedback to our dbt package team
     url: https://www.surveymonkey.com/r/DQ7K7WW
-    about: We'd love to hear your feedback on our dbt packages.
-  - name: Fivetran Support Portal
-    url: https://support.fivetran.com
-    about: For questions about your Fivetran connector, please contact Fivetran support.
-  - name: dbt Documentation
-    url: https://docs.getdbt.com
-    about: For general dbt questions, consult the dbt documentation.
-  - name: dbt Community Slack
-    url: https://www.getdbt.com/community/join-the-community
-    about: For general dbt questions, join the dbt community Slack.
+    about: Fill out our survey form to provide valuable feedback to the Fivetran team developing and maintaining the dbt packages.
+  - name: Fivetran connector question
+    url: https://support.fivetran.com/hc
+    about: Have a question about your connector? Check out the Fivetran support portal for more details.
+  - name: What is dbt
+    url: https://docs.getdbt.com/docs/introduction
+    about: Check out the dbt docs for all dbt related information
+  - name: Hang out in dbt Slack
+    url: https://www.getdbt.com/community/
+    about: Have a question or just want to chat with fellow data friends, join dbt Slack and hangout in the tools-fivetran channel with us!

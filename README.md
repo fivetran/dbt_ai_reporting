@@ -40,7 +40,7 @@ By default, this package materializes the following final tables:
 | Table | Description |
 | :---- | :---- |
 | [`ai_reporting__cost_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__cost_report) | One row per platform, source_relation, date_day, account (workspace for Claude, project for OpenAI), model, cost_type, and token_unit_type. Combines Claude and OpenAI cost and token usage; cost is real USD on both platforms.<br><br>**Example Analytics Questions:**<ul><li>How does token cost compare between Claude and OpenAI for the same time period?</li><li>Which models or workspaces are driving the most spend?</li><li>How is spend trending week over week across both vendors?</li></ul> |
-| [`ai_reporting__code_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__code_report) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI lines-of-code and token usage. Claude cost is always in USD; OpenAI's `estimated_cost` is null unless you set `openai__code_report_credit_rate` to convert its credits into an estimated USD figure, and OpenAI credits are always available in their own column.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
+| [`ai_reporting__code_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__code_report) | One row per platform, source_relation, date_day, and user. Combines Claude Code and Codex CLI lines-of-code and token usage. Claude cost is always in USD when `claude__using_claude_code_usage_report_model_breakdown` is enabled; OpenAI's `estimated_cost` is null unless you set `openai__code_report_credit_rate` to convert its credits into an estimated USD figure, and OpenAI credits are always available in their own column.<br><br>**Example Analytics Questions:**<ul><li>Which developers are the heaviest users of AI coding assistants?</li><li>How does coding-assistant activity trend over time per user?</li><li>How much token volume is Claude Code driving compared to Codex CLI?</li></ul> |
 | [`ai_reporting__enterprise_report`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__enterprise_report) | One row per platform, source_relation, date_day, actor, model, and product. Combines Claude and OpenAI enterprise (seat-level) usage; cost is populated only on Claude rows.<br><br>**Example Analytics Questions:**<ul><li>Which products (chat, Claude Code, etc.) are seeing the most usage per actor?</li><li>How does seat-level usage vary across models?</li><li>Which actors are the heaviest enterprise users on each platform?</li></ul> |
 | [`ai_reporting__user_summary`](https://fivetran.github.io/dbt_ai_reporting/#!/model/model.ai_reporting.ai_reporting__user_summary) | One row per platform, source_relation, and user. Combines lifetime and month-to-date usage summaries; tokens and active days are populated on both platforms, cost only on Claude.<br><br>**Example Analytics Questions:**<ul><li>Who are your most active users across both AI platforms?</li><li>How does a user's month-to-date usage compare to their lifetime usage?</li><li>How many active days has each user logged this month?</li></ul> |
 
@@ -137,16 +137,6 @@ vars:
 ##### Optional: Incorporate unioned sources into DAG
 If you use [Fivetran Transformations for dbt Core™](https://fivetran.com/docs/transformations/dbt#transformationsfordbtcore) and are unioning multiple Claude or OpenAI connections, you can define your sources in a property `.yml` file. Set the variable `has_defined_sources: true` in your `dbt_project.yml`. Otherwise, your connections won't appear in your DAG. See the `union_connections` macro [documentation](https://github.com/fivetran/dbt_fivetran_utils/tree/releases/v0.4.latest#optional-union-connections-defined-sources-configuration) for full configuration details.
 
-### Estimate OpenAI Codex cost in USD
-`ai_reporting__code_report` leaves `estimated_cost` null on OpenAI rows by default, since OpenAI's Codex credits have no published USD conversion rate. If you want an approximate USD figure anyway, set your own credits-to-dollars rate:
-```yml
-# dbt_project.yml
-
-vars:
-  openai__code_report_credit_rate: 0.04 # your own credits-to-USD rate; estimated_cost = credits * openai__code_report_credit_rate
-```
-This is a customer-supplied estimate, not a value OpenAI publishes -- see [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) for context.
-
 ### Disable models for non-existent sources
 Your Claude or OpenAI connection might not sync every table this package expects. Disable the corresponding variable for any table you are not syncing so the package does not attempt to build models that depend on it. By default, all variables are `true`.
 
@@ -212,6 +202,44 @@ models:
 ### (Optional) Additional configurations
 <details open><summary>Expand/Collapse details</summary>
 
+#### Configure cent-to-dollar conversion (Claude)
+
+The Claude API reports cost fields such as `amount` and `estimated_cost_amount` in the smallest denomination of the currency — cents, or fractional cents on some endpoints, for USD. By default, this package divides those fields by 100 in staging so every downstream cost column is in major currency units (dollars for USD).
+
+This conversion applies only to Claude rows. OpenAI cost is already reported in major currency units and is not affected by this setting.
+
+If you prefer to keep Claude cost fields in their raw, undivided form, set `claude__convert_cost` to `false` in your `dbt_project.yml`:
+
+```yml
+vars:
+    claude__convert_cost: false # default is true
+```
+
+### Estimate OpenAI Codex cost in USD
+`ai_reporting__code_report` leaves `estimated_cost` null on OpenAI rows by default, since OpenAI's Codex credits have no published USD conversion rate. If you want an approximate USD figure anyway, set your own credits-to-dollars rate:
+```yml
+# dbt_project.yml
+
+vars:
+  openai__code_report_credit_rate: 0.04 # your own credits-to-USD rate; estimated_cost = credits * openai__code_report_credit_rate
+```
+This is a customer-supplied estimate, not a value OpenAI publishes -- see [DECISIONLOG.md](https://github.com/fivetran/dbt_ai_reporting/blob/main/DECISIONLOG.md) for context.
+
+#### Model family overrides (OpenAI)
+
+`openai__cost_usage_report` and `openai__enterprise_user_report` include `model_family` and `model_variant` alongside the original `model` string. When a model name does not match a recognized pattern, the full name becomes the family and `model_variant` is null. To override a model's parsed family:
+
+```yml
+vars:
+  openai_model_family_overrides:
+    - model: gpt-4o-mini        # keep gpt-4o-mini snapshots under their own family instead of folding into gpt-4o
+      family: gpt-4o-mini
+    - model: codex-mini-latest  # rename a specific model's family
+      family: codex-mini
+```
+
+Keys are the exact model name as it appears in your data (trimmed, lowercased, with any `ft:` fine-tune wrapper removed). Overrides take precedence over built-in parsing rules.
+
 #### Passing through additional fields
 
 Both upstream packages support bringing additional source columns through to their **platform-specific** transform models (not the combined `ai_reporting__*` models). Their variables accept the same format:
@@ -267,26 +295,10 @@ vars:
     openai__compliance_cost_billing_passthrough_metrics: [] # Default = empty
 ```
 
-#### Model family overrides (OpenAI)
-
-`openai__cost_usage_report` and `openai__enterprise_user_report` include `model_family` and `model_variant` alongside the original `model` string. When a model name does not match a recognized pattern, the full name becomes the family and `model_variant` is null. To override a model's parsed family:
-
-```yml
-vars:
-  openai_model_family_overrides:
-    - model: gpt-4o-mini        # keep gpt-4o-mini snapshots under their own family instead of folding into gpt-4o
-      family: gpt-4o-mini
-    - model: codex-mini-latest  # rename a specific model's family
-      family: codex-mini
-```
-
-Keys are the exact model name as it appears in your data (trimmed, lowercased, with any `ft:` fine-tune wrapper removed). Overrides take precedence over built-in parsing rules.
-
 #### Change the source table references
 
 If a source table has a different name in your destination than the package expects, set the identifier variable for that table.
 
-**Claude:**
 ```yml
 vars:
     claude_<default_source_table_name>_identifier: your_table_name

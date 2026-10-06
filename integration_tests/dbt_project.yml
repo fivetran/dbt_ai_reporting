@@ -7,8 +7,8 @@ models:
   +persist_docs:
     relation: true
     columns: "{{ false if target.type in ('databricks') else true }}"
-  # +schema: "{{ 'ai_reporting_integrations_tests_sqlw' if target.name == 'databricks-sql' else 'ai_reporting' }}"
-  +schema: "ai_reporting_{{ var('directed_schema','dev') }}"
+  +schema: "{{ 'ai_reporting_integrations_tests_sqlw' if target.name == 'databricks-sql' else 'ai_reporting' }}"
+  # +schema: "ai_reporting_{{ var('directed_schema','dev') }}"
 
 vars:
   claude:
@@ -374,6 +374,9 @@ seeds:
     openai_compliance_users:
       +column_types:
         created_at: timestamp
+    openai_invite:
+      +column_types:
+        invited_at: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
 
 dispatch:
   - macro_namespace: dbt_utils

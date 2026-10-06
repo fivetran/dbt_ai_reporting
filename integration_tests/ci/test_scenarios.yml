@@ -37,6 +37,7 @@ test_scenarios:
       claude__using_workspace: false
       claude__using_users: false
       claude__using_enterprise_user_activity: false
+      claude__using_enterprise_user_actor: false
     include_incremental: false
 
   - name: "Optional OpenAI tables disabled"

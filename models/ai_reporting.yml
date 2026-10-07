@@ -97,7 +97,7 @@ models:
       - name: total_tokens
         description: Sum of all token types reported for this row.
       - name: estimated_cost
-        description: Estimated cost in estimated_cost_currency. Always populated on Claude rows; on OpenAI rows, populated only when the openai__code_report_credit_rate var is set.
+        description: Estimated cost in estimated_cost_currency. Populated on Claude rows when `claude__using_claude_code_usage_report_model_breakdown` is enabled; on OpenAI rows, populated only when the openai__code_report_credit_rate var is set.
       - name: estimated_cost_currency
         description: "{{ doc('currency') }}"
       - name: credits

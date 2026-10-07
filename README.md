@@ -1,4 +1,4 @@
-<!--section="ai_reporting_transformation_model"-->
+<!--section="ai-reporting_transformation_model"-->
 # AI Reporting dbt Package
 
 This dbt package combines data from Fivetran's Claude and OpenAI dbt packages into unified, cross-vendor AI usage and cost reporting models.
@@ -215,7 +215,7 @@ vars:
     claude__convert_cost: false # default is true
 ```
 
-### Estimate OpenAI Codex cost in USD
+#### Estimate OpenAI Codex cost in USD
 `ai_reporting__code_report` leaves `estimated_cost` null on OpenAI rows by default, since OpenAI's Codex credits have no published USD conversion rate. If you want an approximate USD figure anyway, set your own credits-to-dollars rate:
 ```yml
 # dbt_project.yml
@@ -338,7 +338,7 @@ packages:
       version: [">=0.1.0", "<0.2.0"]
 
     - package: fivetran/fivetran_utils
-      version: [">=0.4.0", "<0.5.0"]
+      version: [">=0.4.12", "<0.5.0"]
 
     - package: dbt-labs/dbt_utils
       version: [">=1.0.0", "<2.0.0"]

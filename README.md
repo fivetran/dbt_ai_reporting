@@ -143,7 +143,7 @@ Your Claude or OpenAI connection might not sync every table this package expects
 ```yml
 vars:
     ## Claude
-    claude__using_cost_report: false                               # Disable if you do not have COST_REPORT synced.
+    claude__using_cost_report: false                              # Disable if you do not have COST_REPORT synced.
     claude__using_enterprise_user_cost_report: false              # Disable if you do not have ENTERPRISE_USER_COST_REPORT synced.
     claude__using_message_usage_report: false                     # Disable if you do not have MESSAGE_USAGE_REPORT synced.
     claude__using_enterprise_user_usage_report: false             # Disable if you do not have ENTERPRISE_USER_USAGE_REPORT synced.

@@ -1,0 +1,6 @@
+packages:
+  - package: fivetran/claude
+    version: [">=0.1.0", "<0.2.0"]
+
+  - package: fivetran/openai
+    version: [">=0.1.0", "<0.2.0"]

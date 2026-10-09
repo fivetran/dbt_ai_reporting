@@ -1,0 +1,35 @@
+{{ config(enabled=ai_reporting_claude_enterprise_enabled() or ai_reporting_openai_enterprise_enabled()) }}
+
+-- One row per platform, source_relation, date_day, actor, model, product, and unit_type. cost is USD and
+-- populated only on claude rows -- see int_ai_reporting__enterprise_report.sql for why.
+
+with enterprise_report as (
+
+    select *
+    from {{ ref('int_ai_reporting__enterprise_report') }}
+),
+
+final as (
+
+    select
+        {{ dbt_utils.generate_surrogate_key(['platform', 'source_relation', 'date_day', 'actor_user_id', 'model', 'product', 'unit_type']) }} as enterprise_report_id,
+        platform,
+        source_relation,
+        date_day,
+        actor_user_id,
+        actor_email,
+        actor_name,
+        product,
+        model,
+        model_family,
+        model_variant,
+        unit_type,
+        unit_quantity,
+        num_model_requests,
+        cost,
+        currency
+    from enterprise_report
+)
+
+select *
+from final

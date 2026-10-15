@@ -1,3 +1,10 @@
+# dbt_ai_reporting v0.1.1
+
+[PR #2](https://github.com/fivetran/dbt_ai_reporting/pull/2) introduces the following update:
+
+## Under the Hood
+- Adjusts the `quickstart.yml` config to properly reference the Claude connector.
+
 # dbt_ai_reporting v0.1.0
 
 This is the initial release of the AI Reporting dbt package!

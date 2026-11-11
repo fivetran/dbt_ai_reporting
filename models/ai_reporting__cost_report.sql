@@ -1,7 +1,7 @@
 {{ config(enabled=ai_reporting_claude_cost_enabled() or ai_reporting_openai_cost_enabled()) }}
 
--- One row per platform, source_relation, date_day, account, model, cost_type, and
--- token_unit_type. Cost is real USD on both platforms and is safe to sum across platforms.
+-- One row per platform, source_relation, date_day, account, api_key_id, model, cost_type, and
+-- token_unit_type. Cost is denominated in the currency column on both platforms.
 
 with cost_report as (
 

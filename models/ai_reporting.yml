@@ -4,8 +4,8 @@ models:
   - name: ai_reporting__cost_report
     description: >
       Combined Claude + OpenAI cost and usage report. One row per platform, source_relation,
-      date_day, account (workspace for Claude, project for OpenAI), model, cost_type, and
-      token_unit_type. cost is real USD on both platforms and is safe to sum across platforms.
+      date_day, account (workspace for Claude, project for OpenAI), api_key_id, model, cost_type,
+      and token_unit_type. cost is denominated in the currency column on both platforms.
     columns:
       - name: cost_report_id
         description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, token_unit_type, and api_key_id.
@@ -41,7 +41,9 @@ models:
       - name: token_unit_type
         description: The metered token type this row covers (`input`, `output`, `cache_read`, etc.), or null on non-token cost (e.g. `cost_type = 'other'`).
       - name: unit_quantity
-        description: Token volume for this row's token_unit_type. Null when token_unit_type is null.
+        description: >
+          Token volume for this row's token_unit_type. Null when the vendor reports cost with no
+          matching token volume, and on non-token cost, where token_unit_type is null as well.
       - name: cost
         description: Cost for this row in the currency column. Real USD on both platforms.
       - name: currency
@@ -99,14 +101,17 @@ models:
       - name: estimated_cost
         description: Estimated cost in estimated_cost_currency. Populated on Claude rows when `claude__using_claude_code_usage_report_model_breakdown` is enabled; on OpenAI rows, populated only when the openai__code_report_credit_rate var is set.
       - name: estimated_cost_currency
-        description: "{{ doc('currency') }}"
+        description: >
+          The ISO currency code estimated_cost is denominated in. Always null on OpenAI rows,
+          including when estimated_cost is populated, because OpenAI's code report carries no
+          currency column.
       - name: credits
         description: Codex usage in OpenAI credits -- not USD, and not directly comparable to estimated_cost. Always null on Claude rows.
 
   - name: ai_reporting__enterprise_report
     description: >
       Combined Claude + OpenAI enterprise (seat-level) usage report. One row per platform,
-      source_relation, date_day, actor, model, and product. cost is USD and populated only on
+      source_relation, date_day, actor, model, product, and unit_type. cost is USD and populated only on
       Claude rows -- OpenAI's enterprise usage report carries no cost column today.
     columns:
       - name: enterprise_report_id
@@ -185,7 +190,7 @@ models:
       - name: account_scope_names
         description: Comma-separated names of the workspaces (Claude) or projects (OpenAI) this user belongs to.
       - name: lifetime_tokens
-        description: Total tokens attributed to this user since their first billed or active day.
+        description: Total tokens attributed to this user, across all token types and all time.
       - name: month_to_date_tokens
         description: Total tokens attributed to this user in the current calendar month.
       - name: lifetime_cost

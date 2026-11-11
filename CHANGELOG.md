@@ -1,3 +1,14 @@
+# dbt_ai_reporting v0.1.2
+
+[PR #4](https://github.com/fivetran/dbt_ai_reporting/pull/4) includes the following updates:
+
+## Under the Hood
+- Corrects end model documentation so the column and model descriptions match what the models actually output. No model logic or output columns changed.
+  - `ai_reporting__cost_report`: adds `api_key_id` to the documented grain, describes `cost` as denominated in the `currency` column rather than as USD safe to sum across platforms, and describes `unit_quantity` as null whenever the vendor reports cost with no matching token volume.
+  - `ai_reporting__enterprise_report`: adds `unit_type` to the documented grain.
+  - `ai_reporting__code_report`: documents `estimated_cost_currency` as always null on OpenAI rows, including when `estimated_cost` is populated.
+  - `ai_reporting__user_summary`: describes `lifetime_tokens` as all-time across all token types.
+
 # dbt_ai_reporting v0.1.1
 
 [PR #2](https://github.com/fivetran/dbt_ai_reporting/pull/2) introduces the following update:

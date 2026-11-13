@@ -78,7 +78,7 @@ Include the following package version in your `packages.yml` file:
 ```yaml
 packages:
   - package: fivetran/ai_reporting
-    version: [">=0.2.0", "<0.3.0"] # we recommend using ranges to capture non-breaking changes automatically
+    version: [">=0.3.0", "<0.4.0"] # we recommend using ranges to capture non-breaking changes automatically
 ```
 
 Do NOT include `dbt_claude` or `dbt_openai` directly in this file. This package depends on both and will install them for you.

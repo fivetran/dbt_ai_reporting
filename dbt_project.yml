@@ -1,8 +1,8 @@
 name: 'ai_reporting'
-version: '0.1.1'
+version: '0.3.0'
 
 config-version: 2
-require-dbt-version: [">=1.3.0", "<3.0.0"]
+require-dbt-version: [">=1.10.0", "<3.0.0"]
 
 models:
   ai_reporting:

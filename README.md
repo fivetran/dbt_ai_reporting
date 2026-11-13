@@ -15,7 +15,7 @@ This dbt package combines data from Fivetran's Claude and OpenAI dbt packages in
   - [DAG](https://fivetran.github.io/dbt_ai_reporting/#!/overview?g_v=1)
   - [Changelog](https://github.com/fivetran/dbt_ai_reporting/blob/main/CHANGELOG.md)
 - dbt Core™ supported versions
-  - `>=1.3.0, <3.0.0`
+  - `>=1.10.0, <3.0.0`
 
 ## What does this dbt package do?
 This package creates unified reporting models for AI cost, coding-assistant activity, enterprise (seat-level) usage, and per-user summaries across different vendors.
@@ -78,7 +78,7 @@ Include the following package version in your `packages.yml` file:
 ```yaml
 packages:
   - package: fivetran/ai_reporting
-    version: [">=0.1.0", "<0.2.0"] # we recommend using ranges to capture non-breaking changes automatically
+    version: [">=0.2.0", "<0.3.0"] # we recommend using ranges to capture non-breaking changes automatically
 ```
 
 Do NOT include `dbt_claude` or `dbt_openai` directly in this file. This package depends on both and will install them for you.

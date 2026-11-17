@@ -28,7 +28,9 @@ locations from its manifest; no company-specific database or schema is embedded.
 To customize a board, copy it into `charts/ai_reporting/` in your project.
 The project's copy replaces the package board of the same name. Render a
 customized copy with `dct render charts/ai_reporting/spend.yml --format html`.
-The boards offer a date range and platform filter. Unset filters include all
+The boards offer date and platform filters. The spend board also offers
+month/week/day granularity, model-family/model, workspace/project, charge-type,
+and reported API-key filters. The enterprise board adds product/model filters. Unset filters include all
 available history and platforms; they work with one platform enabled as well as
 both. A platform absent from a report does not appear in its filter.
 
@@ -50,7 +52,8 @@ both. A platform absent from a report does not appear in its filter.
   coding activity remains in volumes but is excluded from user counts and
   rankings. Product counts can overlap.
 - Enterprise quantities stay separated by vendor unit, product, and model.
-  OpenAI enterprise costs are unavailable; this board does not compare them.
+  The enterprise user table shows reported Claude costs; OpenAI enterprise
+  costs remain blank because they are unavailable, not zero.
 - Cursor is not supported by this package.
 
 ## Validation
@@ -74,6 +77,34 @@ These previews use only the package's integration-test seeds:
 - [AI Spend](previews/spend.png)
 - [AI Coding Activity](previews/coding-activity.png)
 - [AI Enterprise Adoption](previews/enterprise-adoption.png)
+- [Account drilldown](previews/spend-accounts.png)
+- [API-key drilldown](previews/spend-api-keys.png)
+- [Monthly spend matrix](previews/spend-monthly.png)
 
 Validated with dbt Charts `0.11.1.dev1374`, dbt Core `1.12.5`, and the DuckDB
 adapter `1.10.0`. No dbt model or Quickstart configuration changes are required.
+
+## Coverage compared with an enriched company cost board
+
+The spend board includes month/week/day trends, model-family and charge-category
+breakdowns, workspace/project and reported API-key drilldowns, and a monthly
+spend matrix. Its date and dimension filters apply to both the Overview and
+Accounts and API Keys tabs. Weekly periods start Monday.
+
+The underlying data is not a complete company AI bill:
+
+| Capability | Reusable package coverage |
+| --- | --- |
+| Claude and OpenAI platform/API cost | Cost report; both platforms in USD |
+| Model-family, model, account, and charge-category filters | Included in the spend board |
+| API-key attribution | Claude only; unavailable for OpenAI in the combined cost report |
+| Enterprise user cost | Claude only, shown separately on the enterprise board |
+| Coding costs | Separate estimates and credits with coverage counts |
+| Google/Gemini and Cursor | Not included in this package |
+| Departments, teams, cost centers, employee or API-key owners | Requires an organization's own directory and attribution models |
+| Finance approval, COGS tags, and budgets | Requires additional business sources and models |
+
+Organization enrichment belongs in modeled joins, not guessed labels or chart
+logic. To extend the boards with that data, build an enriched model in your own
+dbt project and customize the project-local board copy to query it. Reconcile
+billing scope before combining reports into a company-wide total.

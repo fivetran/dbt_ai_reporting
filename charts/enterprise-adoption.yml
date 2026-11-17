@@ -4,13 +4,21 @@ text: |
   utilization. Users are counted within each platform and source connection;
   identities are not merged across vendors. Usage quantities retain their vendor
   unit and are not summed across unlike units. OpenAI enterprise cost is not
-  available, so this board does not compare enterprise spend.
+  available; the user table shows Claude costs separately, not a cross-vendor total.
 variables:
   period:
     input: daterange
   platform:
     options:
       query: platforms
+  product:
+    input: multiselect
+    options:
+      query: product_options
+  model:
+    input: multiselect
+    options:
+      query: model_options
 queries:
   platforms:
     dialect: duckdb
@@ -18,14 +26,26 @@ queries:
       select distinct platform
       from {{ ref('ai_reporting__enterprise_report') }}
       order by 1
+  product_options:
+    dialect: duckdb
+    sql: |
+      select distinct product from {{ ref('ai_reporting__enterprise_report') }}
+      where product is not null order by 1
+  model_options:
+    dialect: duckdb
+    sql: |
+      select distinct model from {{ ref('ai_reporting__enterprise_report') }}
+      where model is not null order by 1
   activity:
     dialect: duckdb
     sql: |
-      select date_day, platform, source_relation, actor_user_id, product,
-        model, unit_type, unit_quantity, num_model_requests
+      select date_day, platform, source_relation, actor_user_id, actor_email, product,
+        model, unit_type, unit_quantity, num_model_requests, cost
       from {{ ref('ai_reporting__enterprise_report') }}
       where {{ filter_date_range('date_day', period) }}
         and {{ filter('platform', platform) }}
+        and {{ filter('product', product) }}
+        and {{ filter('model', model) }}
   daily_users:
     sql: |
       with observed as (
@@ -64,6 +84,21 @@ queries:
       from {{ queries.activity.cache }}
       group by 1, 2, 3, 4
       order by 1, 2, 4, 5 desc
+  users:
+    sql: |
+      select platform, source_relation, actor_user_id,
+        arg_max(actor_email, date_day) as email,
+        count(distinct date_day) filter (
+          where unit_quantity > 0 or num_model_requests > 0
+        ) as active_days,
+        sum(cost) as reported_enterprise_cost_usd,
+        max(date_day) as last_reported_day
+      from {{ queries.activity.cache }}
+      where actor_user_id is not null
+      group by 1, 2, 3
+      order by 5 desc, 1, 2, 3 limit 100
+    formats:
+      reported_enterprise_cost_usd: currency_full
 charts:
   daily_users:
     type: line
@@ -80,7 +115,13 @@ charts:
     type: table
     query: usage
     title: Usage by Platform, Product, Model, and Unit
+  users:
+    type: table
+    query: users
+    title: Top 100 Enterprise Users by Active Days
+    subtitle: Reported cost covers Claude only. OpenAI cost is unavailable, not zero.
 rows:
   - daily_users
   - products
   - usage
+  - users

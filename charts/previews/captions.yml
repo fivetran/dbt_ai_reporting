@@ -1,3 +1,6 @@
 spend.png: AI Spend board rendered from package integration-test seeds (sample data).
 coding-activity.png: AI Coding Activity board rendered from package integration-test seeds (sample data).
 enterprise-adoption.png: AI Enterprise Adoption board rendered from package integration-test seeds (sample data).
+spend-accounts.png: Workspace/project spend grouped by stable account IDs, using integration-test sample data.
+spend-api-keys.png: Reported Claude API-key spend using integration-test sample data.
+spend-monthly.png: Monthly platform spend matrix using integration-test sample data.

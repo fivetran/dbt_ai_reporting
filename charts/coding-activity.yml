@@ -1,0 +1,106 @@
+title: AI Coding Activity
+text: |
+  Claude Code and Codex CLI activity. Sessions are Claude sessions or Codex
+  threads; lines of code measure assistant activity, not developer productivity.
+  Estimated USD and Codex credits are shown separately and are not added to the
+  spend board. Missing estimates remain blank, not zero. OpenAI estimates require
+  `openai__code_report_credit_rate`; Claude estimates require model breakdown data.
+variables:
+  period:
+    input: daterange
+  platform:
+    options:
+      query: platforms
+queries:
+  platforms:
+    dialect: duckdb
+    sql: |
+      select distinct platform
+      from {{ ref('ai_reporting__code_report') }}
+      order by 1
+  activity:
+    dialect: duckdb
+    sql: |
+      select date_day, platform, source_relation, user_id, user_email,
+        count_sessions, count_lines_of_code_added, count_lines_of_code_removed,
+        total_tokens, estimated_cost, credits
+      from {{ ref('ai_reporting__code_report') }}
+      where {{ filter_date_range('date_day', period) }}
+        and {{ filter('platform', platform) }}
+  daily:
+    sql: |
+      with observed as (
+        select date_day, platform,
+          sum(total_tokens) as total_tokens,
+          sum(count_sessions) as sessions_or_threads,
+          count(distinct (source_relation, user_id, user_email)) filter (
+            where (count_sessions > 0 or total_tokens > 0
+              or count_lines_of_code_added > 0 or count_lines_of_code_removed > 0)
+              and (user_id is not null or user_email is not null)
+          ) as active_users
+        from {{ queries.activity.cache }}
+        group by 1, 2
+      )
+      select cast(days.day as date) as date_day, platforms.platform,
+        observed.total_tokens, observed.active_users, observed.sessions_or_threads
+      from generate_series(
+        (select min(date_day) from observed),
+        (select max(date_day) from observed), interval 1 day
+      ) as days(day)
+      cross join (select distinct platform from observed) platforms
+      left join observed on observed.date_day = cast(days.day as date)
+        and observed.platform = platforms.platform
+      order by 1, 2
+  users:
+    sql: |
+      select platform, source_relation, user_id, user_email,
+        sum(total_tokens) as total_tokens,
+        sum(count_sessions) as sessions_or_threads,
+        sum(estimated_cost) as estimated_usd,
+        count(estimated_cost) as days_with_cost_estimate,
+        count(*) as reported_days,
+        sum(credits) as codex_credits
+      from {{ queries.activity.cache }}
+      group by 1, 2, 3, 4
+      order by 5 desc nulls last
+      limit 20
+    formats:
+      estimated_usd: currency_full
+charts:
+  daily_tokens:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: total_tokens
+    title: Daily Coding Tokens by Platform
+  daily_users:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: active_users
+    title: Daily Active Coding Users
+  daily_sessions:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: sessions_or_threads
+    title: Daily Sessions and Threads
+  users:
+    type: table
+    query: users
+    title: Top 20 Coding Users by Tokens
+rows:
+  - daily_tokens
+  - cols:
+      - daily_users
+      - daily_sessions
+  - users

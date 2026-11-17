@@ -3,6 +3,13 @@
 
 This dbt package combines data from Fivetran's Claude and OpenAI dbt packages into unified, cross-vendor AI usage and cost reporting models.
 
+## Starter boards
+
+The package includes [dbt Charts starter boards](charts/README.md) for AI spend,
+coding activity, and enterprise adoption. They query the package's reporting
+models through your dbt connection, with date and platform filters. See the
+[setup instructions and metric definitions](charts/README.md) before use.
+
 ## Resources
 
 - Number of materialized models¹: 4

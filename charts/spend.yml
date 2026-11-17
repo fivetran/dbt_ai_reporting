@@ -1,96 +1,203 @@
-title: AI Spend
+title: AI Platform Spend
 text: |
-  Actual USD spend reported by Claude and OpenAI. This board reads only the cost
-  report; coding estimates and enterprise usage costs are separate views of
-  activity and must not be added to this total. Unset filters include all data.
+  Claude and OpenAI platform/API cost in USD. Enterprise user costs and coding
+  estimates are separate reports, not an additional amount to add to this total.
+  Use the filters to investigate a model, workspace/project, or reported API key.
 variables:
   period:
     input: daterange
+  granularity:
+    options:
+      static: [month, week, day]
+    default: month
   platform:
+    input: multiselect
     options:
       query: platforms
+  model_family:
+    input: multiselect
+    options:
+      query: families
+  model:
+    input: multiselect
+    options:
+      query: models_available
+  account:
+    label: Workspace or Project
+    input: multiselect
+    options:
+      query: accounts_available
+      column: account_key
+      label_column: account_label
+  api_key:
+    label: Reported API Key
+    input: multiselect
+    options:
+      query: keys_available
+      column: key_id
+      label_column: key_label
+  cost_type:
+    input: multiselect
+    options:
+      query: cost_types
 queries:
-  platforms:
+  available:
     dialect: duckdb
-    sql: |
-      select distinct platform
-      from {{ ref('ai_reporting__cost_report') }}
-      order by 1
-  spend:
-    dialect: duckdb
+    notes: Date-bounded model rows; dimension options and every tab share this scope.
     sql: |
       select date_day, platform, source_relation, account_id, account_name,
-        model, cost_type, cost
+        api_key_id, api_key_name, model, model_family, cost_type, cost,
+        concat(platform, '|', source_relation, '|', account_id) as account_key,
+        concat(platform, '|', source_relation, '|', api_key_id) as key_id
       from {{ ref('ai_reporting__cost_report') }}
       where {{ filter_date_range('date_day', period) }}
-        and {{ filter('platform', platform) }}
-    formats:
-      cost: currency_full
-  total:
-    sql: select sum(cost) as spend_usd from {{ queries.spend.cache }}
+  platforms:
+    sql: select distinct platform from {{ queries.available.cache }} order by 1
+  families:
+    sql: |
+      select distinct model_family from {{ queries.available.cache }}
+      where model_family is not null order by 1
+  models_available:
+    sql: |
+      select distinct model from {{ queries.available.cache }}
+      where model is not null order by 1
+  accounts_available:
+    sql: |
+      select account_key,
+        concat(platform, ' / ', coalesce(arg_max(account_name, date_day), account_id), ' / ',
+          account_id, ' / ', source_relation) as account_label
+      from {{ queries.available.cache }}
+      where account_id is not null
+      group by account_key, platform, account_id, source_relation order by 2
+  keys_available:
+    sql: |
+      select key_id,
+        concat(platform, ' / ', coalesce(arg_max(api_key_name, date_day), api_key_id), ' / ',
+          api_key_id, ' / ', source_relation) as key_label
+      from {{ queries.available.cache }}
+      where api_key_id is not null
+      group by key_id, platform, api_key_id, source_relation order by 2
+  cost_types:
+    sql: |
+      select distinct cost_type from {{ queries.available.cache }}
+      where cost_type is not null order by 1
+  spend:
+    notes: Every breakdown and deep dive uses these same filters.
+    sql: |
+      select * from {{ queries.available.cache }}
+      where {{ filter('platform', platform) }}
+        and {{ filter('model_family', model_family) }}
+        and {{ filter('model', model) }}
+        and {{ filter('account_key', account) }}
+        and {{ filter('key_id', api_key) }}
+        and {{ filter('cost_type', cost_type) }}
+  summary:
+    sql: |
+      select sum(cost) as spend_usd,
+        count(distinct (platform, source_relation, account_id))
+          filter (where account_id is not null and cost <> 0) as billed_accounts,
+        sum(cost) filter (where api_key_id is not null) as key_attributed_spend_usd
+      from {{ queries.spend.cache }}
     formats:
       spend_usd: currency_full
-  daily:
+      key_attributed_spend_usd: currency_full
+  trend:
     sql: |
       with observed as (
-        select date_day, platform, sum(cost) as spend_usd
-        from {{ queries.spend.cache }}
-        group by 1, 2
+        select date_trunc('{{ granularity }}', date_day) as period,
+          platform, sum(cost) as spend_usd
+        from {{ queries.spend.cache }} group by 1, 2
       )
-      select cast(days.day as date) as date_day, platforms.platform, observed.spend_usd
+      select cast(dates.period as date) as period, platforms.platform,
+        observed.spend_usd
       from generate_series(
-        (select min(date_day) from observed),
-        (select max(date_day) from observed), interval 1 day
-      ) as days(day)
+        (select min(period) from observed), (select max(period) from observed),
+        cast('1 ' || '{{ granularity }}' as interval)
+      ) as dates(period)
       cross join (select distinct platform from observed) platforms
-      left join observed on observed.date_day = cast(days.day as date)
-        and observed.platform = platforms.platform
+      left join observed using (period, platform)
       order by 1, 2
     formats:
       spend_usd: currency_full
-  models:
+  family_trend:
     sql: |
-      select coalesce(model, 'Unattributed') as model, platform, sum(cost) as spend_usd
-      from {{ queries.spend.cache }}
-      group by 1, 2
-      order by 3 desc
-      limit 20
-    formats:
-      spend_usd: currency_full
-  accounts:
-    sql: |
-      select platform, source_relation, account_id, account_name,
-        sum(cost) as spend_usd
-      from {{ queries.spend.cache }}
-      group by 1, 2, 3, 4
-      order by 5 desc
-      limit 20
+      with observed as (
+        select date_trunc('{{ granularity }}', date_day) as period,
+          coalesce(model_family, 'Unattributed') as model_family,
+          sum(cost) as spend_usd
+        from {{ queries.spend.cache }} group by 1, 2
+      )
+      select cast(dates.period as date) as period, families.model_family,
+        observed.spend_usd
+      from generate_series(
+        (select min(period) from observed), (select max(period) from observed),
+        cast('1 ' || '{{ granularity }}' as interval)
+      ) as dates(period)
+      cross join (select distinct model_family from observed) families
+      left join observed using (period, model_family)
+      order by 1, 2
     formats:
       spend_usd: currency_full
   categories:
     sql: |
-      select coalesce(cost_type, 'Unattributed') as cost_type, platform, sum(cost) as spend_usd
-      from {{ queries.spend.cache }}
-      group by 1, 2
-      order by 3 desc
+      select coalesce(cost_type, 'Unattributed') as cost_type, platform,
+        sum(cost) as spend_usd
+      from {{ queries.spend.cache }} group by 1, 2 order by 3 desc
     formats:
       spend_usd: currency_full
+  accounts:
+    sql: |
+      select platform, source_relation, account_id,
+        arg_max(account_name, date_day) as account_name,
+        sum(cost) as spend_usd, max(date_day) as last_reported_day
+      from {{ queries.spend.cache }} group by 1, 2, 3
+      order by 5 desc nulls last, 1, 2, 3, 4 limit 100
+    formats:
+      spend_usd: currency_full
+  keys:
+    sql: |
+      select platform, source_relation, api_key_id,
+        arg_max(api_key_name, date_day) as api_key_name,
+        sum(cost) as spend_usd, max(date_day) as last_reported_day
+      from {{ queries.spend.cache }}
+      where api_key_id is not null group by 1, 2, 3
+      order by 5 desc nulls last, 1, 2, 3, 4 limit 100
+    formats:
+      spend_usd: currency_full
+  monthly:
+    sql: |
+      select platform, strftime(date_day, '%Y-%m') as month,
+        sum(cost) as spend_usd
+      from {{ queries.spend.cache }} group by 1, 2 order by 2, 1
 charts:
   total:
     type: kpi
-    query: total
-    label: Reported Spend (USD)
-  daily:
+    query: summary
+    value: spend_usd
+    label: Reported platform spend
+  accounts_count:
+    type: kpi
+    query: summary
+    value: billed_accounts
+    label: Billed workspaces and projects
+  keys_total:
+    type: kpi
+    query: summary
+    value: key_attributed_spend_usd
+    label: Spend with API-key attribution
+  trend:
     type: line
-    query: daily
-    title: Daily Spend by Platform
-    notes: Missing reporting days are null so the line breaks rather than implying spend.
+    query: trend
+    title: Platform Spend Over Time
+    notes: Absent reporting periods stay null so the line breaks at gaps.
     warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
-  models:
-    type: bar
-    query: models
-    title: Top 20 Model and Platform Combinations by Spend
-    subtitle: Unattributed means the vendor did not report a model.
+  family_trend:
+    type: line
+    query: family_trend
+    title: Spend by Model Family Over Time
+    subtitle: Unattributed means the vendor did not report a model family.
+    notes: Absent reporting periods stay null so the line breaks at gaps.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
   categories:
     type: bar
     query: categories
@@ -98,11 +205,57 @@ charts:
   accounts:
     type: table
     query: accounts
-    title: Top 20 Workspaces and Projects by Spend
-rows:
-  - total
-  - daily
-  - cols:
-      - models
-      - categories
-  - accounts
+    title: Top 100 Workspaces and Projects by Spend
+  keys:
+    type: table
+    query: keys
+    title: Top 100 Reported API Keys by Spend
+  monthly:
+    type: table
+    query: monthly
+    title: Monthly Platform Spend
+    rows: [platform]
+    columns: [month]
+    values: [spend_usd]
+    style:
+      columns:
+        spend_usd:
+          format: currency_full
+tabs:
+  items:
+    - title: Overview
+      rows:
+        - cols:
+            - total
+            - accounts_count
+            - keys_total
+        - trend
+        - family_trend
+        - categories
+    - title: Accounts and API Keys
+      text: |
+        All filters apply to this tab. API-key attribution is currently available
+        only for Claude. Missing keys do not mean zero spend: the headline on the
+        Overview tab shows how much spend has key attribution.
+      rows:
+        - accounts
+        - keys
+        - monthly
+    - title: Coverage
+      text: |
+        This board reads `ai_reporting__cost_report`: Claude platform and OpenAI
+        platform/API costs. It does not show a complete company AI bill.
+
+        Enterprise user costs and coding estimates have separate grains and
+        coverage; do not add them to this total without reconciling billing scopes.
+        OpenAI API-key attribution is unavailable in this combined model.
+
+        The model does not include Google/Gemini or Cursor, employee departments,
+        teams, cost centers, API-key owners, finance approval tags, or budgets.
+        Those require additional sources and modeled joins. No organizational
+        attribution is inferred by these boards.
+
+        The time-grain control changes the trends. Weekly periods start Monday.
+        The monthly table stays monthly. Every tab shares the date and dimension
+        filters; an unset date range includes all available history. If the date
+        range starts or ends inside a week or month, that bucket is partial.

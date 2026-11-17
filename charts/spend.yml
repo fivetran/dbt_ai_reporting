@@ -69,7 +69,7 @@ queries:
       spend_usd: currency_full
   categories:
     sql: |
-      select cost_type, platform, sum(cost) as spend_usd
+      select coalesce(cost_type, 'Unattributed') as cost_type, platform, sum(cost) as spend_usd
       from {{ queries.spend.cache }}
       group by 1, 2
       order by 3 desc
@@ -84,7 +84,7 @@ charts:
     type: line
     query: daily
     title: Daily Spend by Platform
-    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    notes: Missing reporting days are null so the line breaks rather than implying spend.
     warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
   models:
     type: bar

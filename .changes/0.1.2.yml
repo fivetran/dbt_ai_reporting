@@ -1,5 +1,7 @@
 version: 0.1.2
 pr_number: 7
 new_features:
-  - title: AI Reporting starter boards
-    description: Adds dbt Charts boards for reported spend, coding activity, and enterprise adoption, with date and platform filters.
+- title: AI Reporting starter boards
+  description: Adds dbt Charts boards for reported spend, coding activity, and enterprise
+    adoption, with date and platform filters.
+date: '2026-11-17'

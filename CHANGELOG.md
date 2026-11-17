@@ -1,3 +1,10 @@
+# dbt_ai_reporting v0.1.2
+
+[PR #7](https://github.com/fivetran/dbt_ai_reporting/pull/7) includes the following updates:
+
+## Feature Update
+- **AI Reporting starter boards**: Adds dbt Charts boards for reported spend, coding activity, and enterprise adoption, with date and platform filters.
+
 # dbt_ai_reporting v0.1.1
 
 [PR #2](https://github.com/fivetran/dbt_ai_reporting/pull/2) introduces the following update:

@@ -5,6 +5,8 @@ text: |
   Estimated USD and Codex credits are shown separately and are not added to the
   spend board. Missing estimates remain blank, not zero. OpenAI estimates require
   `openai__code_report_credit_rate`; Claude estimates require model breakdown data.
+  Unidentified activity contributes to volume but is excluded from user counts
+  and rankings.
 variables:
   period:
     input: daterange
@@ -23,7 +25,9 @@ queries:
     sql: |
       select date_day, platform, source_relation, user_id, user_email,
         count_sessions, count_lines_of_code_added, count_lines_of_code_removed,
-        total_tokens, estimated_cost, credits
+        total_tokens, estimated_cost, credits,
+        case when user_id is not null then 'id:' || user_id
+          when user_email is not null then 'email:' || user_email end as user_identity
       from {{ ref('ai_reporting__code_report') }}
       where {{ filter_date_range('date_day', period) }}
         and {{ filter('platform', platform) }}
@@ -33,10 +37,10 @@ queries:
         select date_day, platform,
           sum(total_tokens) as total_tokens,
           sum(count_sessions) as sessions_or_threads,
-          count(distinct (source_relation, user_id, user_email)) filter (
+          count(distinct (source_relation, user_identity)) filter (
             where (count_sessions > 0 or total_tokens > 0
               or count_lines_of_code_added > 0 or count_lines_of_code_removed > 0)
-              and (user_id is not null or user_email is not null)
+              and user_identity is not null
           ) as active_users
         from {{ queries.activity.cache }}
         group by 1, 2
@@ -53,16 +57,18 @@ queries:
       order by 1, 2
   users:
     sql: |
-      select platform, source_relation, user_id, user_email,
+      select platform, source_relation, max(user_id) as user_id,
+        arg_max(user_email, date_day) as user_email,
         sum(total_tokens) as total_tokens,
         sum(count_sessions) as sessions_or_threads,
         sum(estimated_cost) as estimated_usd,
-        count(estimated_cost) as days_with_cost_estimate,
-        count(*) as reported_days,
+        count(distinct date_day) filter (where estimated_cost is not null) as days_with_cost_estimate,
+        count(distinct date_day) as reported_days,
         sum(credits) as codex_credits
       from {{ queries.activity.cache }}
-      group by 1, 2, 3, 4
-      order by 5 desc nulls last
+      where user_identity is not null
+      group by platform, source_relation, user_identity
+      order by 5 desc nulls last, 1, 2, 3, 4
       limit 20
     formats:
       estimated_usd: currency_full

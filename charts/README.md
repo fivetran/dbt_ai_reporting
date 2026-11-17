@@ -26,7 +26,8 @@ locations from its manifest; no company-specific database or schema is embedded.
    ```
 
 To customize a board, copy it into `charts/ai_reporting/` in your project.
-The project's copy replaces the package board of the same name.
+The project's copy replaces the package board of the same name. Render a
+customized copy with `dct render charts/ai_reporting/spend.yml --format html`.
 The boards offer a date range and platform filter. Unset filters include all
 available history and platforms; they work with one platform enabled as well as
 both. A platform absent from a report does not appear in its filter.
@@ -44,7 +45,10 @@ both. A platform absent from a report does not appear in its filter.
   measure activity, not productivity or business value.
 - Active users have positive reported usage. User identities stay scoped to
   platform and source connection; the boards do not deduplicate people across
-  vendors or connections. Product counts can overlap.
+  vendors or connections. Coding users are identified by user ID when present,
+  otherwise by email; the table shows the latest reported email. Unidentified
+  coding activity remains in volumes but is excluded from user counts and
+  rankings. Product counts can overlap.
 - Enterprise quantities stay separated by vendor unit, product, and model.
   OpenAI enterprise costs are unavailable; this board does not compare them.
 - Cursor is not supported by this package.

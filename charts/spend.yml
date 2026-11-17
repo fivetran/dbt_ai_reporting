@@ -1,0 +1,108 @@
+title: AI Spend
+text: |
+  Actual USD spend reported by Claude and OpenAI. This board reads only the cost
+  report; coding estimates and enterprise usage costs are separate views of
+  activity and must not be added to this total. Unset filters include all data.
+variables:
+  period:
+    input: daterange
+  platform:
+    options:
+      query: platforms
+queries:
+  platforms:
+    dialect: duckdb
+    sql: |
+      select distinct platform
+      from {{ ref('ai_reporting__cost_report') }}
+      order by 1
+  spend:
+    dialect: duckdb
+    sql: |
+      select date_day, platform, source_relation, account_id, account_name,
+        model, cost_type, cost
+      from {{ ref('ai_reporting__cost_report') }}
+      where {{ filter_date_range('date_day', period) }}
+        and {{ filter('platform', platform) }}
+    formats:
+      cost: currency_full
+  total:
+    sql: select sum(cost) as spend_usd from {{ queries.spend.cache }}
+    formats:
+      spend_usd: currency_full
+  daily:
+    sql: |
+      with observed as (
+        select date_day, platform, sum(cost) as spend_usd
+        from {{ queries.spend.cache }}
+        group by 1, 2
+      )
+      select cast(days.day as date) as date_day, platforms.platform, observed.spend_usd
+      from generate_series(
+        (select min(date_day) from observed),
+        (select max(date_day) from observed), interval 1 day
+      ) as days(day)
+      cross join (select distinct platform from observed) platforms
+      left join observed on observed.date_day = cast(days.day as date)
+        and observed.platform = platforms.platform
+      order by 1, 2
+    formats:
+      spend_usd: currency_full
+  models:
+    sql: |
+      select coalesce(model, 'Unattributed') as model, platform, sum(cost) as spend_usd
+      from {{ queries.spend.cache }}
+      group by 1, 2
+      order by 3 desc
+      limit 20
+    formats:
+      spend_usd: currency_full
+  accounts:
+    sql: |
+      select platform, source_relation, account_id, account_name,
+        sum(cost) as spend_usd
+      from {{ queries.spend.cache }}
+      group by 1, 2, 3, 4
+      order by 5 desc
+      limit 20
+    formats:
+      spend_usd: currency_full
+  categories:
+    sql: |
+      select cost_type, platform, sum(cost) as spend_usd
+      from {{ queries.spend.cache }}
+      group by 1, 2
+      order by 3 desc
+    formats:
+      spend_usd: currency_full
+charts:
+  total:
+    type: kpi
+    query: total
+    label: Reported Spend (USD)
+  daily:
+    type: line
+    query: daily
+    title: Daily Spend by Platform
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+  models:
+    type: bar
+    query: models
+    title: Top 20 Model and Platform Combinations by Spend
+    subtitle: Unattributed means the vendor did not report a model.
+  categories:
+    type: bar
+    query: categories
+    title: Spend by Vendor Charge Category
+  accounts:
+    type: table
+    query: accounts
+    title: Top 20 Workspaces and Projects by Spend
+rows:
+  - total
+  - daily
+  - cols:
+      - models
+      - categories
+  - accounts

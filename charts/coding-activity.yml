@@ -1,0 +1,238 @@
+title: AI Coding Activity
+text: |
+  Claude Code and Codex CLI activity. Sessions are Claude sessions or Codex
+  threads; lines of code measure assistant activity, not developer productivity.
+  Estimated USD and Codex credits are shown separately and are not added to the
+  spend board. Missing estimates remain blank, not zero. OpenAI estimates require
+  `openai__code_report_credit_rate`; Claude estimates require model breakdown data.
+  Unidentified activity contributes to volume but is excluded from user counts
+  and rankings.
+variables:
+  period:
+    input: daterange
+  platform:
+    options:
+      query: platforms
+queries:
+  platforms:
+    dialect: duckdb
+    sql: |
+      select distinct platform
+      from {{ ref('ai_reporting__code_report') }}
+      order by 1
+  activity:
+    dialect: duckdb
+    sql: |
+      select date_day, platform, source_relation, user_id, user_email,
+        count_sessions, count_lines_of_code_added, count_lines_of_code_removed,
+        tokens_input, tokens_output, tokens_cache_read, tokens_cache_creation,
+        case when tokens_input is not null or tokens_output is not null
+          or tokens_cache_read is not null or tokens_cache_creation is not null
+          then total_tokens end as total_tokens,
+        estimated_cost, credits,
+        case when user_id is not null then 'id:' || user_id
+          when user_email is not null then 'email:' || user_email end as user_identity
+      from {{ ref('ai_reporting__code_report') }}
+      where {{ filter_date_range('date_day', period) }}
+        and {{ filter('platform', platform) }}
+  daily:
+    sql: |
+      with observed as (
+        select date_day, platform,
+          sum(total_tokens) as total_tokens,
+          sum(count_sessions) as sessions_or_threads,
+          count(distinct (source_relation, user_identity)) filter (
+            where (count_sessions > 0 or total_tokens > 0
+              or count_lines_of_code_added > 0 or count_lines_of_code_removed > 0)
+              and user_identity is not null
+          ) as active_users
+        from {{ queries.activity.cache }}
+        group by 1, 2
+      )
+      select cast(days.day as date) as date_day, platforms.platform,
+        observed.total_tokens, observed.active_users, observed.sessions_or_threads
+      from generate_series(
+        (select min(date_day) from observed),
+        (select max(date_day) from observed), interval 1 day
+      ) as days(day)
+      cross join (select distinct platform from observed) platforms
+      left join observed on observed.date_day = cast(days.day as date)
+        and observed.platform = platforms.platform
+      order by 1, 2
+  users:
+    sql: |
+      select platform, source_relation, max(user_id) as user_id,
+        arg_max(user_email, date_day) as user_email,
+        sum(total_tokens) as total_tokens,
+        sum(count_sessions) as sessions_or_threads,
+        sum(estimated_cost) as estimated_usd,
+        count(distinct date_day) filter (where estimated_cost is not null) as days_with_cost_estimate,
+        count(distinct date_day) as reported_days,
+        sum(credits) as codex_credits
+      from {{ queries.activity.cache }}
+      where user_identity is not null
+      group by platform, source_relation, user_identity
+      order by 5 desc nulls last, 1, 2, 3, 4
+      limit 20
+    formats:
+      estimated_usd: currency_full
+  summary:
+    sql: |
+      select sum(total_tokens) as reported_tokens,
+        sum(count_sessions) as sessions_or_threads,
+        count(distinct (source_relation, platform, user_identity)) filter (
+          where user_identity is not null
+            and (count_sessions > 0 or total_tokens > 0
+              or count_lines_of_code_added > 0 or count_lines_of_code_removed > 0)
+        ) as active_users,
+        count(total_tokens) * 1.0 / nullif(count(*), 0) as non_null_token_field_share
+      from {{ queries.activity.cache }}
+    formats:
+      non_null_token_field_share: percent
+  cache:
+    notes: Cache share includes only rows reporting both uncached input and cache-read tokens. Cache creation is not applicable on OpenAI rows.
+    sql: |
+      select count(*) as rows_with_input_detail,
+        sum(tokens_cache_read) * 1.0 / nullif(
+        sum(tokens_input) + sum(tokens_cache_read)
+          + sum(case when platform = 'openai' then 0
+            else tokens_cache_creation end), 0
+      ) as cache_read_share
+      from {{ queries.activity.cache }}
+      where tokens_input is not null and tokens_cache_read is not null
+        and (platform = 'openai' or tokens_cache_creation is not null)
+    formats:
+      cache_read_share: percent
+  token_mix:
+    sql: |
+      with totals as (
+        select platform, sum(tokens_input) as uncached_input,
+          sum(tokens_output) as output, sum(tokens_cache_read) as cache_read,
+          sum(tokens_cache_creation) as cache_creation
+        from {{ queries.activity.cache }} group by 1
+      )
+      unpivot totals on uncached_input, output, cache_read, cache_creation
+      into name token_type value reported_tokens
+  monthly:
+    sql: |
+      select strftime(date_day, '%Y-%m') as month, platform,
+        sum(total_tokens) as reported_tokens,
+        sum(count_sessions) as sessions_or_threads,
+        count(distinct (source_relation, user_identity)) filter (
+          where user_identity is not null
+            and (count_sessions > 0 or total_tokens > 0
+              or count_lines_of_code_added > 0 or count_lines_of_code_removed > 0)
+        ) as active_users,
+        count(total_tokens) as rows_with_token_data,
+        count(*) as reported_user_days
+      from {{ queries.activity.cache }} group by 1, 2 order by 1, 2
+  code_changes:
+    sql: |
+      select platform, sum(count_lines_of_code_added) as lines_added,
+        sum(count_lines_of_code_removed) as lines_removed
+      from {{ queries.activity.cache }} group by 1 order by 1
+charts:
+  daily_tokens:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: total_tokens
+    title: Daily Coding Tokens by Platform
+  daily_users:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: active_users
+    title: Daily Active Coding Users
+  daily_sessions:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    query: daily
+    x: date_day
+    color: platform
+    y: sessions_or_threads
+    title: Daily Sessions and Threads
+  users:
+    type: table
+    query: users
+    title: Top 20 Coding Users by Tokens
+  tokens_total:
+    type: kpi
+    query: summary
+    value: reported_tokens
+    label: Reported coding tokens
+  sessions_total:
+    type: kpi
+    query: summary
+    value: sessions_or_threads
+    label: Sessions and threads
+  active_total:
+    type: kpi
+    query: summary
+    value: active_users
+    label: Active coding identities
+  token_coverage:
+    type: kpi
+    query: summary
+    value: non_null_token_field_share
+    label: Rows with non-null token fields
+  cache_share:
+    type: kpi
+    query: cache
+    value: cache_read_share
+    support:
+      value: rows_with_input_detail
+      label: user-day rows with input detail
+    label: Cache-read share of input tokens
+  token_mix:
+    type: bar
+    query: token_mix
+    x: token_type
+    color: platform
+    y: reported_tokens
+    title: Reported Coding Token Mix
+    subtitle: As reported by the package; zero-filled source fields do not establish complete usage.
+  monthly:
+    type: table
+    query: monthly
+    title: Monthly Coding Scorecard
+  code_changes:
+    type: table
+    query: code_changes
+    title: Assistant-Reported Code Changes
+    subtitle: Activity counts are not measures of developer productivity.
+tabs:
+  items:
+    - title: Overview
+      rows:
+        - cols:
+            - tokens_total
+            - sessions_total
+            - active_total
+        - daily_tokens
+        - cols:
+            - daily_users
+            - daily_sessions
+    - title: Tokens and Cache
+      text: |
+        These are the package's reported token fields. The non-null field share
+        is not a completeness guarantee: OpenAI's upstream report can zero-fill
+        missing values. Missing Claude components stay unknown. Cache-read share
+        uses rows with input and cache fields present; it is not dollar savings.
+      rows:
+        - cols:
+            - token_coverage
+            - cache_share
+        - token_mix
+        - monthly
+    - title: Users and Activity
+      rows:
+        - users
+        - code_changes

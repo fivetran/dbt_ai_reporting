@@ -1,0 +1,150 @@
+title: OpenAI Enterprise Spending Estimates
+text: |
+  Estimated USD and credits from OpenAI's compliance billing report, including
+  the products present in that feed. This report overlaps Codex coding costs;
+  do not add it to the coding report or a company total without reconciling
+  billing scope. USD estimates are not invoices. Missing estimates remain blank.
+variables:
+  period:
+    input: daterange
+  product:
+    input: multiselect
+    options:
+      query: products
+  model:
+    input: multiselect
+    options:
+      query: models
+queries:
+  available:
+    dialect: duckdb
+    sql: |
+      select source_relation, organization_id, date_day, user_id, product,
+        surface, client, model, sku, quantity_unit, quantity, credits,
+        estimated_cost_usd_amount
+      from {{ ref('openai__compliance_cost_report') }}
+      where {{ filter_date_range('date_day', period) }}
+  products:
+    sql: |
+      select distinct product from {{ queries.available.cache }}
+      where product is not null order by 1
+  models:
+    sql: |
+      select distinct model from {{ queries.available.cache }}
+      where model is not null order by 1
+  billing:
+    sql: |
+      select * from {{ queries.available.cache }}
+      where {{ filter('product', product) }} and {{ filter('model', model) }}
+  summary:
+    sql: |
+      select sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) * 1.0 / nullif(count(*), 0)
+          as estimate_reporting_coverage
+      from {{ queries.billing.cache }}
+    formats:
+      estimated_usd: currency_full
+      estimate_reporting_coverage: percent
+  monthly:
+    sql: |
+      select strftime(date_day, '%Y-%m') as month, product,
+        sum(estimated_cost_usd_amount) as estimated_usd
+      from {{ queries.billing.cache }}
+      where strftime(date_day, '%Y-%m') in (
+        select distinct strftime(date_day, '%Y-%m')
+        from {{ queries.billing.cache }} order by 1 desc limit 36
+      )
+      group by 1, 2 order by 1, 2
+    formats:
+      estimated_usd: currency_full
+  model_costs:
+    sql: |
+      select model, product, sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) as rows_with_usd_estimate,
+        count(*) as billing_rows
+      from {{ queries.billing.cache }} group by 1, 2
+      order by 3 desc nulls last, 1, 2 limit 100
+    formats:
+      estimated_usd: currency_full
+  users:
+    sql: |
+      select source_relation, organization_id, user_id,
+        sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) as rows_with_usd_estimate,
+        count(*) as billing_rows, max(date_day) as last_reported_day
+      from {{ queries.billing.cache }} group by 1, 2, 3
+      order by 4 desc nulls last, 1, 2, 3 limit 100
+    formats:
+      estimated_usd: currency_full
+  sku_usage:
+    sql: |
+      select product, model, sku, quantity_unit, sum(quantity) as reported_quantity,
+        sum(estimated_cost_usd_amount) as estimated_usd
+      from {{ queries.billing.cache }} group by 1, 2, 3, 4
+      order by 1, 2, 3, 4
+    formats:
+      estimated_usd: currency_full
+charts:
+  estimated:
+    type: kpi
+    query: summary
+    value: estimated_usd
+    label: Reported USD estimates
+  credits:
+    type: kpi
+    query: summary
+    value: reported_credits
+    label: Reported credits
+  coverage:
+    type: kpi
+    query: summary
+    value: estimate_reporting_coverage
+    label: Billing rows with USD estimates
+  monthly:
+    type: bar
+    query: monthly
+    style:
+      axis_x:
+        type: ordinal
+    title: Monthly Enterprise Spending Estimates by Product
+    subtitle: Latest 36 reported months. Missing estimates are not zero costs.
+  model_costs:
+    type: table
+    query: model_costs
+    title: Model and Product Spending Estimates
+  users:
+    type: table
+    query: users
+    title: Top 100 User Identities by Estimated Spend
+  sku_usage:
+    type: table
+    query: sku_usage
+    title: SKU Usage and Estimated Spend
+    subtitle: Quantities are summed only within their reported unit.
+tabs:
+  items:
+    - title: Overview
+      rows:
+        - cols:
+            - estimated
+            - credits
+            - coverage
+        - monthly
+        - model_costs
+    - title: Users and SKUs
+      rows:
+        - users
+        - sku_usage
+    - title: Coverage
+      text: |
+        Requires OpenAI compliance billing data and an enabled
+        `openai__compliance_cost_report` model. Credits and USD estimates are
+        distinct measures. The estimate coverage card counts billing rows, not
+        the percentage of the organization's complete bill captured here.
+
+        This source can overlap the Codex coding report. No cost from this board
+        is added to the platform-spend board or the Claude enterprise report.
+        User identities retain organization and connection scope.

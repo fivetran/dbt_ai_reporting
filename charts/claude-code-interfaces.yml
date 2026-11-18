@@ -1,0 +1,117 @@
+title: Claude Code Interfaces
+text: |
+  Claude Code activity by terminal/interface from the upstream Claude report.
+  This detail is lost in the combined daily user model. Estimated costs and
+  tokens cover only rows with model-breakdown data; session and code-change
+  counts can cover more activity. These estimates are not an additional bill.
+variables:
+  period:
+    input: daterange
+  terminal_type:
+    input: multiselect
+    options:
+      query: terminals
+queries:
+  available:
+    dialect: duckdb
+    sql: |
+      select source_relation, organization_id, report_date, actor_type,
+        actor_email, actor_api_key_name, terminal_type, count_sessions,
+        count_commits, count_pull_requests, count_lines_of_code_added,
+        count_lines_of_code_removed, tokens_input, tokens_output,
+        tokens_cache_read, tokens_cache_creation, estimated_cost
+      from {{ ref('claude__code_report') }}
+      where {{ filter_date_range('report_date', period) }}
+  terminals:
+    sql: |
+      select distinct terminal_type from {{ queries.available.cache }}
+      where terminal_type is not null order by 1
+  activity:
+    sql: |
+      select * from {{ queries.available.cache }}
+      where {{ filter('terminal_type', terminal_type) }}
+  summary:
+    sql: |
+      select sum(count_sessions) as reported_sessions,
+        sum(count_commits) as reported_commits,
+        sum(count_pull_requests) as reported_pull_requests,
+        count(estimated_cost) * 1.0 / nullif(count(*), 0)
+          as cost_reporting_coverage
+      from {{ queries.activity.cache }}
+    formats:
+      cost_reporting_coverage: percent
+  interfaces:
+    sql: |
+      select coalesce(terminal_type, 'Not reported') as terminal_type,
+        sum(count_sessions) as reported_sessions
+      from {{ queries.activity.cache }} group by 1 order by 2 desc, 1
+  economics:
+    sql: |
+      select coalesce(terminal_type, 'Not reported') as terminal_type,
+        sum(estimated_cost) as estimated_usd,
+        sum(tokens_input) as uncached_input_tokens,
+        sum(tokens_output) as output_tokens,
+        sum(tokens_cache_read) as cache_read_tokens,
+        sum(tokens_cache_creation) as cache_creation_tokens,
+        count(estimated_cost) as rows_with_cost_estimate,
+        count(*) as activity_rows
+      from {{ queries.activity.cache }} group by 1 order by 2 desc nulls last, 1
+    formats:
+      estimated_usd: currency_full
+  actors:
+    sql: |
+      select source_relation, organization_id, actor_type, actor_email,
+        actor_api_key_name, sum(count_sessions) as reported_sessions,
+        sum(count_lines_of_code_added) as lines_added,
+        sum(count_lines_of_code_removed) as lines_removed,
+        sum(estimated_cost) as estimated_usd,
+        count(estimated_cost) as rows_with_cost_estimate,
+        count(*) as activity_rows
+      from {{ queries.activity.cache }} group by 1, 2, 3, 4, 5
+      order by 6 desc nulls last, 1, 2, 3, 4, 5 limit 100
+    formats:
+      estimated_usd: currency_full
+charts:
+  sessions:
+    type: kpi
+    query: summary
+    value: reported_sessions
+    label: Reported sessions
+  commits:
+    type: kpi
+    query: summary
+    value: reported_commits
+    label: Assistant-reported commits
+  pull_requests:
+    type: kpi
+    query: summary
+    value: reported_pull_requests
+    label: Assistant-reported pull requests
+  coverage:
+    type: kpi
+    query: summary
+    value: cost_reporting_coverage
+    label: Rows with non-null cost estimates
+  interfaces:
+    type: bar
+    query: interfaces
+    title: Sessions by Interface
+  economics:
+    type: table
+    query: economics
+    title: Interface Tokens and Estimated Costs
+    subtitle: Compare coverage counts before comparing estimates across interfaces.
+  actors:
+    type: table
+    query: actors
+    title: Top 100 Reported Actors by Sessions
+    subtitle: Code changes measure activity, not developer productivity.
+rows:
+  - cols:
+      - sessions
+      - commits
+      - pull_requests
+      - coverage
+  - interfaces
+  - economics
+  - actors

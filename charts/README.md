@@ -9,6 +9,9 @@ locations from its manifest; no company-specific database or schema is embedded.
 | `spend.yml` | How is reported USD spend trending, and which models, accounts, and charge categories drive it? | `ai_reporting__cost_report` |
 | `coding-activity.yml` | Who uses Claude Code and Codex CLI, and how are tokens and sessions trending? | `ai_reporting__code_report` |
 | `enterprise-adoption.yml` | Which platforms and products have active enterprise users? | `ai_reporting__enterprise_report` |
+| `user-adoption.yml` | Who is active this reporting month, and how does that compare with lifetime activity? | `ai_reporting__user_summary` |
+| `openai-enterprise-spend.yml` | What USD estimates and credits does OpenAI compliance billing report by product, model, and user? | `openai__compliance_cost_report` (upstream OpenAI package) |
+| `claude-code-interfaces.yml` | Which Claude interfaces drive sessions and reported token/cost estimates? | `claude__code_report` (upstream Claude package) |
 
 ## Open a board
 
@@ -34,6 +37,16 @@ and reported API-key filters. The enterprise board adds product/model filters. U
 available history and platforms; they work with one platform enabled as well as
 both. A platform absent from a report does not appear in its filter.
 
+The two vendor-specific boards are optional. Build their upstream models before
+opening them. OpenAI enterprise spending requires compliance billing data and
+`openai__using_compliance_cost: true`. Claude interface detail requires
+`claude__using_claude_code_usage_report: true` and
+`claude__using_claude_code_usage_report_model_breakdown: true`; token/cost columns
+are conditional on the latter. Claude USD panels assume the default
+`claude__convert_cost: true` conversion to major currency units.
+The combined boards remain usable with either
+vendor alone. Disabled models fail explicitly rather than producing invented data.
+
 ## Reading the numbers
 
 - Spend comes exclusively from `ai_reporting__cost_report`, whose cost is actual
@@ -55,6 +68,34 @@ both. A platform absent from a report does not appear in its filter.
   The enterprise user table shows reported Claude costs; OpenAI enterprise
   costs remain blank because they are unavailable, not zero.
 - Cursor is not supported by this package.
+- Recent Spend calendar KPIs anchor to the latest reporting day under the
+  selected dimension filters, not the computer's current date. They ignore the
+  analysis date range so a date selection cannot erase the comparison window.
+  Latest-month spend is month-to-date through that reporting day; previous month
+  is the previous full calendar month. Per-connection reporting dates are shown
+  alongside comparisons because feeds with different cutoffs can make combined
+  windows incomplete. The seven-day delta compares adjacent
+  seven-calendar-day windows; a missing or nonpositive baseline produces no percentage.
+- Spend mix and token-mix charts show the latest 36 reported months within the
+  selected date range. The headline totals still cover the full selection.
+- Coding tokens remain null when every token component is missing, even if the
+  upstream total is zero. The non-null token-field share counts field presence,
+  not source completeness: OpenAI's upstream report can zero-fill missing token
+  fields, so those zeros do not prove zero real usage. Cache-read share
+  uses only rows with uncached input and cache reads reported, plus cache creation
+  where applicable; it measures token reuse, not dollar savings.
+- User adoption is a snapshot, so its month-to-date fields follow the upstream
+  reporting month and do not offer an arbitrary date filter. Active-share
+  metrics exclude deleted identities and unknown activity from both numerator
+  and denominator. Identities stay
+  scoped to platform and source. Deleted identities remain visible for history.
+- The OpenAI compliance board exposes estimated USD and credits separately,
+  together with estimate coverage counts. It can overlap Codex coding cost.
+  Do not sum those reports into a company bill. Missing estimates stay null.
+- The Claude interface board uses upstream terminal detail discarded by the
+  combined user-day model. Estimate coverage can be much smaller than activity
+  coverage; compare the reported-row counts before comparing interface costs.
+- User tables expose emails to everyone who can view their boards.
 
 ## Validation
 
@@ -80,16 +121,26 @@ These previews use only the package's integration-test seeds:
 - [Account drilldown](previews/spend-accounts.png)
 - [API-key drilldown](previews/spend-api-keys.png)
 - [Monthly spend matrix](previews/spend-monthly.png)
+- [Recent spend comparisons](previews/spend-recent.png)
+- [Token economics](previews/spend-token-economics.png)
+- [Coding tokens and cache](previews/coding-tokens-cache.png)
+- [User adoption](previews/user-adoption.png)
+- [OpenAI enterprise spending estimates](previews/openai-enterprise-spend.png)
+- [OpenAI users and SKUs](previews/openai-users-skus.png)
+- [Claude Code interfaces](previews/claude-code-interfaces.png)
 
 Validated with dbt Charts `0.11.1.dev1374`, dbt Core `1.12.5`, and the DuckDB
-adapter `1.10.0`. No dbt model or Quickstart configuration changes are required.
+adapter `1.10.0`. No dbt model definitions were changed.
 
 ## Coverage compared with an enriched company cost board
 
 The spend board includes month/week/day trends, model-family and charge-category
 breakdowns, workspace/project and reported API-key drilldowns, and a monthly
-spend matrix. Its date and dimension filters apply to both the Overview and
-Accounts and API Keys tabs. Weekly periods start Monday.
+spend matrix. Its analysis tabs share the date and dimension filters. The Recent
+Spend calendar KPIs use all history under the dimension filters and explicitly
+show their reporting-day anchor. Weekly periods start Monday. Token economics
+shows realized unit cost on matched cost/quantity rows, not list prices or
+hypothetical model-switch savings.
 
 The underlying data is not a complete company AI bill:
 
@@ -98,7 +149,7 @@ The underlying data is not a complete company AI bill:
 | Claude and OpenAI platform/API cost | Cost report; both platforms in USD |
 | Model-family, model, account, and charge-category filters | Included in the spend board |
 | API-key attribution | Claude only; unavailable for OpenAI in the combined cost report |
-| Enterprise user cost | Claude only, shown separately on the enterprise board |
+| Enterprise user cost | Claude in the combined enterprise board; OpenAI compliance USD estimates and credits on a separate optional board |
 | Coding costs | Separate estimates and credits with coverage counts |
 | Google/Gemini and Cursor | Not included in this package |
 | Departments, teams, cost centers, employee or API-key owners | Requires an organization's own directory and attribution models |
@@ -108,3 +159,8 @@ Organization enrichment belongs in modeled joins, not guessed labels or chart
 logic. To extend the boards with that data, build an enriched model in your own
 dbt project and customize the project-local board copy to query it. Reconcile
 billing scope before combining reports into a company-wide total.
+
+Per-turn context, session, branch/task, hourly,
+pricing-counterfactual, and Cursor views need event-level logs, price reference
+seeds, task mappings, or additional feeds. Daily vendor reporting cannot
+reconstruct session/turn history, and this pack does not infer it.

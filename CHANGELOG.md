@@ -5,9 +5,6 @@
 ## Feature Update
 - Raises the minimum dbt version to 1.10.0.
 
-## Under the Hood
-- Audits the yml column documentation against the columns each model outputs. The documentation already matched, so nothing changed.
-
 # dbt_ai_reporting v0.1.1
 
 [PR #2](https://github.com/fivetran/dbt_ai_reporting/pull/2) introduces the following update:

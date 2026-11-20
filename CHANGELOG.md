@@ -1,3 +1,14 @@
+# dbt_ai_reporting v0.2.0
+
+[PR #5](https://github.com/fivetran/dbt_ai_reporting/pull/5) includes the following updates:
+
+## Feature Update
+- **Breaking change**: Raises the minimum dbt version to 1.10.0.
+
+## Dependency Updates
+- Bumps `fivetran/claude` from [">=0.1.0", "<0.2.0"] to [">=0.2.0", "<0.3.0"] — Adds support for the latest upstream release.
+- Bumps `fivetran/openai` from [">=0.1.0", "<0.2.0"] to [">=0.2.0", "<0.3.0"] — Adds support for the latest upstream release.
+
 # dbt_ai_reporting v0.1.1
 
 [PR #2](https://github.com/fivetran/dbt_ai_reporting/pull/2) introduces the following update:

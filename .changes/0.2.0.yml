@@ -1,7 +1,8 @@
 version: 0.2.0
 pr_number: 5
 new_features:
-- description: Raises the minimum dbt version to 1.10.0.
+- title: Breaking change
+  description: Raises the minimum dbt version to 1.10.0.
 dependencies:
 - package: fivetran/claude
   old_version: '[">=0.1.0", "<0.2.0"]'

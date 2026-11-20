@@ -332,10 +332,10 @@ This dbt package is dependent on the following dbt packages. These dependencies 
 ```yml
 packages:
     - package: fivetran/claude
-      version: [">=0.1.0", "<0.2.0"]
+      version: [">=0.2.0", "<0.3.0"]
 
     - package: fivetran/openai
-      version: [">=0.1.0", "<0.2.0"]
+      version: [">=0.2.0", "<0.3.0"]
 
     - package: fivetran/fivetran_utils
       version: [">=0.4.12", "<0.5.0"]

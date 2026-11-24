@@ -1,12 +1,6 @@
 packages:
-  - git: https://github.com/fivetran/dbt_claude.git
-    revision: magicbot/fy27-updates
-    # Switch back to the hub release once dbt_claude 0.2.0 is published:
-    # - package: fivetran/claude
-    #   version: [">=0.2.0", "<0.3.0"]
+  - package: fivetran/claude
+    version: [">=0.2.0", "<0.3.0"]
 
-  - git: https://github.com/fivetran/dbt_openai.git
-    revision: magicbot/fy27-updates
-    # Switch back to the hub release once dbt_openai 0.2.0 is published:
-    # - package: fivetran/openai
-    #   version: [">=0.2.0", "<0.3.0"]
+  - package: fivetran/openai
+    version: [">=0.2.0", "<0.3.0"]

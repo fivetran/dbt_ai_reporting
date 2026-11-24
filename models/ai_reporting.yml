@@ -9,18 +9,18 @@ models:
     columns:
       - name: cost_report_id
         description: Surrogate key derived from platform, source_relation, date_day, account_id, model, cost_type, token_unit_type, and api_key_id.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: platform
         description: "{{ doc('platform') }}"
-        tests:
+        data_tests:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
       - name: date_day
         description: "{{ doc('date_day') }}"
-        tests:
+        data_tests:
           - not_null
       - name: account_id
         description: The workspace id (Claude) or project id (OpenAI) this cost or usage rolled up to.
@@ -56,18 +56,18 @@ models:
     columns:
       - name: code_report_id
         description: Surrogate key derived from platform, source_relation, date_day, user_id, and user_email.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: platform
         description: "{{ doc('platform') }}"
-        tests:
+        data_tests:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
       - name: date_day
         description: "{{ doc('date_day') }}"
-        tests:
+        data_tests:
           - not_null
       - name: user_id
         description: "{{ doc('user_id') }}"
@@ -111,18 +111,18 @@ models:
     columns:
       - name: enterprise_report_id
         description: Surrogate key derived from platform, source_relation, date_day, actor_user_id, model, product, and unit_type.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: platform
         description: "{{ doc('platform') }}"
-        tests:
+        data_tests:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
       - name: date_day
         description: "{{ doc('date_day') }}"
-        tests:
+        data_tests:
           - not_null
       - name: actor_user_id
         description: "{{ doc('user_id') }}"
@@ -159,18 +159,18 @@ models:
     columns:
       - name: user_summary_id
         description: Surrogate key derived from platform, source_relation, and user_id.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: platform
         description: "{{ doc('platform') }}"
-        tests:
+        data_tests:
           - not_null
       - name: source_relation
         description: "{{ doc('source_relation') }}"
       - name: user_id
         description: "{{ doc('user_id') }}"
-        tests:
+        data_tests:
           - not_null
       - name: email
         description: Email address of the user.

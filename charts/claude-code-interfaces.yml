@@ -4,6 +4,13 @@ text: |
   This detail is lost in the combined daily user model. Estimated costs and
   tokens cover only rows with model-breakdown data; session and code-change
   counts can cover more activity. These estimates are not an additional bill.
+style:
+  charts:
+    color:
+      categorical:
+        palette: category-6-tonal-brown
+        single_series_palette:
+        - category.orange
 variables:
   period:
     input: daterange
@@ -24,12 +31,14 @@ queries:
       where {{ filter_date_range('report_date', period) }}
   terminals:
     sql: |
-      select distinct terminal_type from {{ queries.available.cache }}
+      select distinct terminal_type from {{ queries.available }}
       where terminal_type is not null order by 1
+    dialect: duckdb
   activity:
     sql: |
-      select * from {{ queries.available.cache }}
+      select * from {{ queries.available }}
       where {{ filter('terminal_type', terminal_type) }}
+    dialect: duckdb
   summary:
     sql: |
       select sum(count_sessions) as reported_sessions,
@@ -37,14 +46,16 @@ queries:
         sum(count_pull_requests) as reported_pull_requests,
         count(estimated_cost) * 1.0 / nullif(count(*), 0)
           as cost_reporting_coverage
-      from {{ queries.activity.cache }}
+      from {{ queries.activity }}
     formats:
       cost_reporting_coverage: percent
+    dialect: duckdb
   interfaces:
     sql: |
       select coalesce(terminal_type, 'Not reported') as terminal_type,
         sum(count_sessions) as reported_sessions
-      from {{ queries.activity.cache }} group by 1 order by 2 desc, 1
+      from {{ queries.activity }} group by 1 order by 2 desc, 1
+    dialect: duckdb
   economics:
     sql: |
       select coalesce(terminal_type, 'Not reported') as terminal_type,
@@ -55,9 +66,10 @@ queries:
         sum(tokens_cache_creation) as cache_creation_tokens,
         count(estimated_cost) as rows_with_cost_estimate,
         count(*) as activity_rows
-      from {{ queries.activity.cache }} group by 1 order by 2 desc nulls last, 1
+      from {{ queries.activity }} group by 1 order by 2 desc nulls last, 1
     formats:
-      estimated_usd: currency_full
+      estimated_usd: currency_whole
+    dialect: duckdb
   actors:
     sql: |
       select source_relation, organization_id, actor_type, actor_email,
@@ -67,10 +79,11 @@ queries:
         sum(estimated_cost) as estimated_usd,
         count(estimated_cost) as rows_with_cost_estimate,
         count(*) as activity_rows
-      from {{ queries.activity.cache }} group by 1, 2, 3, 4, 5
+      from {{ queries.activity }} group by 1, 2, 3, 4, 5
       order by 6 desc nulls last, 1, 2, 3, 4, 5 limit 100
     formats:
-      estimated_usd: currency_full
+      estimated_usd: currency_whole
+    dialect: duckdb
 charts:
   sessions:
     type: kpi
@@ -107,11 +120,11 @@ charts:
     title: Top 100 Reported Actors by Sessions
     subtitle: Code changes measure activity, not developer productivity.
 rows:
-  - cols:
-      - sessions
-      - commits
-      - pull_requests
-      - coverage
-  - interfaces
-  - economics
-  - actors
+- cols:
+  - sessions
+  - commits
+  - pull_requests
+  - coverage
+- interfaces
+- economics
+- actors

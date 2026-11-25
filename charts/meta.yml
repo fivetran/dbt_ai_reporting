@@ -1,0 +1,7 @@
+style:
+  charts:
+    category_colors:
+      platform:
+        values:
+          claude: category.orange
+          openai: category.blue

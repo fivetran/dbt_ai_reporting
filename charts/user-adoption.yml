@@ -25,15 +25,18 @@ queries:
         first_active_date, last_active_date
       from {{ ref('ai_reporting__user_summary') }}
   platforms:
-    sql: select distinct platform from {{ queries.available.cache }} order by 1
+    sql: select distinct platform from {{ queries.available }} order by 1
+    dialect: duckdb
   roles:
     sql: |
-      select distinct role from {{ queries.available.cache }}
+      select distinct role from {{ queries.available }}
       where role is not null order by 1
+    dialect: duckdb
   users:
     sql: |
-      select * from {{ queries.available.cache }}
+      select * from {{ queries.available }}
       where {{ filter('platform', platform) }} and {{ filter('role', role) }}
+    dialect: duckdb
   summary:
     sql: |
       select count(*) as reported_identities,
@@ -45,9 +48,10 @@ queries:
           / nullif(count(*) filter (where is_user_deleted = false
             and month_to_date_active_days is not null), 0) as active_share,
         count(*) filter (where is_user_deleted) as deleted_identities
-      from {{ queries.users.cache }}
+      from {{ queries.users }}
     formats:
       active_share: percent
+    dialect: duckdb
   by_platform:
     sql: |
       select platform,
@@ -57,21 +61,24 @@ queries:
         count(*) filter (where is_user_deleted) as deleted_identities,
         sum(month_to_date_tokens) as month_to_date_tokens,
         sum(lifetime_tokens) as lifetime_tokens
-      from {{ queries.users.cache }} group by 1 order by 1
+      from {{ queries.users }} group by 1 order by 1
+    dialect: duckdb
   top_users:
     sql: |
       select platform, source_relation, user_id, email, role,
         month_to_date_tokens, lifetime_tokens, month_to_date_active_days,
         lifetime_active_days, first_active_date, last_active_date, is_user_deleted
-      from {{ queries.users.cache }}
+      from {{ queries.users }}
       order by month_to_date_tokens desc nulls last,
         lifetime_tokens desc nulls last, platform, source_relation, user_id
       limit 100
+    dialect: duckdb
   role_mix:
     sql: |
       select coalesce(role, 'Not reported') as role, platform,
         count(*) as reported_identities
-      from {{ queries.users.cache }} group by 1, 2 order by 3 desc, 1, 2
+      from {{ queries.users }} group by 1, 2 order by 3 desc, 1, 2
+    dialect: duckdb
   activity_distribution:
     sql: |
       with cohorts as (
@@ -87,21 +94,23 @@ queries:
             when lifetime_active_days <= 30 then '8–30 days'
             when lifetime_active_days <= 90 then '31–90 days'
             else '91+ days' end as active_days
-        from {{ queries.users.cache }} where lifetime_active_days is not null
+        from {{ queries.users }} where lifetime_active_days is not null
       )
       select active_days, platform, count(*) as reported_identities
       from cohorts group by 1, 2 order by min(bucket), platform
+    dialect: duckdb
   costs:
     sql: |
       select platform, source_relation, user_id, email,
         month_to_date_cost as reported_month_to_date_cost_usd,
         lifetime_cost as reported_lifetime_cost_usd
-      from {{ queries.users.cache }}
+      from {{ queries.users }}
       order by month_to_date_cost desc nulls last, platform, source_relation, user_id
       limit 100
     formats:
-      reported_month_to_date_cost_usd: currency_full
-      reported_lifetime_cost_usd: currency_full
+      reported_month_to_date_cost_usd: currency_whole
+      reported_lifetime_cost_usd: currency_whole
+    dialect: duckdb
 charts:
   identities:
     type: kpi
@@ -145,20 +154,20 @@ charts:
     subtitle: Claude costs only. OpenAI costs remain unavailable, not zero.
 tabs:
   items:
-    - title: Overview
-      rows:
-        - cols:
-            - identities
-            - active
-            - tokens
-        - by_platform
-        - roles
-        - activity_distribution
-    - title: Users
-      text: |
-        Deleted identities remain included so historical usage is retained;
-        the deletion flag is shown in the table. Email addresses are displayed
-        to everyone who can view this board.
-      rows:
-        - top_users
-        - costs
+  - title: Overview
+    rows:
+    - cols:
+      - identities
+      - active
+      - tokens
+    - by_platform
+    - roles
+    - activity_distribution
+  - title: Users
+    text: |
+      Deleted identities remain included so historical usage is retained;
+      the deletion flag is shown in the table. Email addresses are displayed
+      to everyone who can view this board.
+    rows:
+    - top_users
+    - costs

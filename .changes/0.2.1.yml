@@ -1,8 +1,7 @@
-version: 0.1.2
+version: 0.2.1
 pr_number: 7
 new_features:
 - title: AI Reporting starter boards
   description: Adds dbt Charts boards for platform spend comparisons, token economics,
     coding and enterprise/user adoption, OpenAI compliance spending estimates, and
     Claude interface activity, with date and dimension filters.
-date: '2026-11-17'

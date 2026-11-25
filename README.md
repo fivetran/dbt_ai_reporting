@@ -5,11 +5,11 @@ This dbt package combines data from Fivetran's Claude and OpenAI dbt packages in
 
 ## Starter boards
 
-The package includes [dbt Charts starter boards](charts/README.md) for AI spend,
+The package includes [dbt Charts starter boards](STARTER_BOARDS.md) for AI spend,
 coding activity, user adoption, and enterprise usage, plus optional OpenAI
 compliance-spending and Claude interface details. They query this package and its
 upstream reporting models through your dbt connection. See the
-[setup instructions and metric definitions](charts/README.md) before use.
+[setup instructions and metric definitions](STARTER_BOARDS.md) before use.
 
 ## Resources
 

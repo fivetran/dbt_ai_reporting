@@ -22,7 +22,9 @@ locations from its manifest; no company-specific database or schema is embedded.
    configuration must be enabled before using their boards.
 3. Install [dbt Charts](https://docs.dbtcharts.com/) and run `dct init` in your
    consuming dbt project if it does not already have `dbt_charts.yml`.
-4. From that project, render a board:
+4. Run `dct serve` from your consuming project. Installed package boards appear
+   automatically under `/ai_reporting/<board>/`, for example
+   `/ai_reporting/spend/`. To export a standalone board, use:
 
    ```sh
    dct render dbt_packages/ai_reporting/charts/spend.yml --format html
@@ -108,29 +110,25 @@ dct render charts/*.yml --dbt-project-dir integration_tests --format png
 ```
 
 Set `DBT_PROFILES_DIR` to your local profiles directory if needed. Use a date
-range that includes your test data when exercising filters. Screenshots made
-from integration-test seeds are sample data, not customer or Fivetran spend.
+range that includes your test data when exercising filters. The integration
+seeds exercise model contracts; the previews below use a separate fictional
+year of activity for 300 people, including weekday patterns and both vendors.
+They do not represent customer or Fivetran usage, spend, or vendor list prices.
 
 ## Sample previews
-
-These previews use only the package's integration-test seeds:
 
 - [AI Spend](previews/spend.png)
 - [AI Coding Activity](previews/coding-activity.png)
 - [AI Enterprise Adoption](previews/enterprise-adoption.png)
-- [Account drilldown](previews/spend-accounts.png)
-- [API-key drilldown](previews/spend-api-keys.png)
-- [Monthly spend matrix](previews/spend-monthly.png)
-- [Recent spend comparisons](previews/spend-recent.png)
-- [Token economics](previews/spend-token-economics.png)
-- [Coding tokens and cache](previews/coding-tokens-cache.png)
 - [User adoption](previews/user-adoption.png)
 - [OpenAI enterprise spending estimates](previews/openai-enterprise-spend.png)
-- [OpenAI users and SKUs](previews/openai-users-skus.png)
 - [Claude Code interfaces](previews/claude-code-interfaces.png)
 
-Validated with dbt Charts `0.11.1.dev1374`, dbt Core `1.12.5`, and the DuckDB
-adapter `1.10.0`. No dbt model definitions were changed.
+Validated with dbt Charts `0.12.1.dev257`, dbt Core `1.12.5`, and the DuckDB
+adapter `1.10.0`. No dbt model definitions were changed. Queries aggregate in
+the warehouse before transferring results; daily trend caches contain summaries
+rather than raw user activity. Thin daily lines show reported observations;
+thick lines show seven-day averages only when all seven days have observations.
 
 ## Coverage compared with an enriched company cost board
 

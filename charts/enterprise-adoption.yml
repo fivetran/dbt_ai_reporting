@@ -9,6 +9,7 @@ variables:
   period:
     input: daterange
   platform:
+    input: multiselect
     options:
       query: platforms
   product:
@@ -20,27 +21,30 @@ variables:
     options:
       query: model_options
 queries:
-  platforms:
+  available:
     dialect: duckdb
     sql: |
-      select distinct platform
+      select distinct platform, product, model
       from {{ ref('ai_reporting__enterprise_report') }}
-      order by 1
+      where {{ filter_date_range('date_day', period) }}
+  platforms:
+    sql: select distinct platform from {{ queries.available.cache }} order by 1
+    dialect: duckdb
   product_options:
-    dialect: duckdb
     sql: |
-      select distinct product from {{ ref('ai_reporting__enterprise_report') }}
+      select distinct product from {{ queries.available.cache }}
       where product is not null order by 1
-  model_options:
     dialect: duckdb
+  model_options:
     sql: |
-      select distinct model from {{ ref('ai_reporting__enterprise_report') }}
+      select distinct model from {{ queries.available.cache }}
       where model is not null order by 1
+    dialect: duckdb
   activity:
     dialect: duckdb
     sql: |
-      select date_day, platform, source_relation, actor_user_id, actor_email, product,
-        model, unit_type, unit_quantity, num_model_requests, cost
+      select date_day, platform, source_relation, actor_user_id, actor_email,
+        product, model, unit_type, unit_quantity, num_model_requests, cost
       from {{ ref('ai_reporting__enterprise_report') }}
       where {{ filter_date_range('date_day', period) }}
         and {{ filter('platform', platform) }}
@@ -49,16 +53,12 @@ queries:
   daily_users:
     sql: |
       with observed as (
-        select date_day, platform,
-          count(distinct (source_relation, actor_user_id)) filter (
-            where actor_user_id is not null
-              and (unit_quantity > 0 or num_model_requests > 0)
-          ) as active_users
-        from {{ queries.activity.cache }}
-        group by 1, 2
+        select * from {{ queries.daily_observed.cache }}
       )
       select cast(days.day as date) as date_day, platforms.platform,
-        observed.active_users
+        observed.active_users,
+        case when count(observed.active_users) over week = 7
+          then avg(observed.active_users) over week end as weekly_active_users
       from generate_series(
         (select min(date_day) from observed),
         (select max(date_day) from observed), interval 1 day
@@ -66,24 +66,29 @@ queries:
       cross join (select distinct platform from observed) platforms
       left join observed on observed.date_day = cast(days.day as date)
         and observed.platform = platforms.platform
+      window week as (partition by platforms.platform order by days.day
+        rows between 6 preceding and current row)
       order by 1, 2
+    dialect: duckdb
   products:
     sql: |
       select product, platform, count(*) as active_users
       from (
         select distinct product, platform, source_relation, actor_user_id
-        from {{ queries.activity.cache }}
+        from {{ queries.activity }}
         where actor_user_id is not null
           and (unit_quantity > 0 or num_model_requests > 0)
       ) users
       group by 1, 2
       order by 3 desc
+    dialect: duckdb
   usage:
     sql: |
       select platform, product, model, unit_type, sum(unit_quantity) as usage_quantity
-      from {{ queries.activity.cache }}
+      from {{ queries.activity }}
       group by 1, 2, 3, 4
       order by 1, 2, 4, 5 desc
+    dialect: duckdb
   users:
     sql: |
       select platform, source_relation, actor_user_id,
@@ -93,18 +98,48 @@ queries:
         ) as active_days,
         sum(cost) as reported_enterprise_cost_usd,
         max(date_day) as last_reported_day
-      from {{ queries.activity.cache }}
+      from {{ queries.activity }}
       where actor_user_id is not null
       group by 1, 2, 3
       order by 5 desc, 1, 2, 3 limit 100
     formats:
-      reported_enterprise_cost_usd: currency_full
+      reported_enterprise_cost_usd: currency_whole
+    dialect: duckdb
+  daily_observed:
+    dialect: duckdb
+    sql: |
+      select date_day, platform,
+          count(distinct (source_relation, actor_user_id)) filter (
+            where actor_user_id is not null
+              and (unit_quantity > 0 or num_model_requests > 0)
+          ) as active_users
+        from {{ queries.activity }}
+        group by 1, 2
 charts:
   daily_users:
     type: line
     notes: Missing reporting days are null so the line breaks rather than implying usage.
-    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    warnings_ignore:
+    - WARN-Y-ENCODING-MOSTLY-NULL
     query: daily_users
+    x: date_day
+    y: active_users
+    color: platform
+    style:
+      marks:
+        line:
+          stroke:
+            width: 1
+    layers:
+    - type: line
+      y: weekly_active_users
+      color: platform
+      label: Seven-day average
+      style:
+        marks:
+          line:
+            stroke:
+              width: 3.5
     title: Daily Active Enterprise Users
   products:
     type: bar
@@ -121,7 +156,7 @@ charts:
     title: Top 100 Enterprise Users by Active Days
     subtitle: Reported cost covers Claude only. OpenAI cost is unavailable, not zero.
 rows:
-  - daily_users
-  - products
-  - usage
-  - users
+- daily_users
+- products
+- usage
+- users

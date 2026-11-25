@@ -3,12 +3,26 @@ text: |
   Claude and OpenAI platform/API cost in USD. Enterprise user costs and coding
   estimates are separate reports, not an additional amount to add to this total.
   Use the filters to investigate a model, workspace/project, or reported API key.
+style:
+  charts:
+    category_colors:
+      model_family:
+        values:
+          Claude Sonnet: category.orange
+          Claude Opus: category.brown
+          Claude Haiku: category.gold
+          GPT-5.2: category.blue
+          GPT-5-mini: category.cyan
+          GPT-4o: category.purple
 variables:
   period:
     input: daterange
   granularity:
     options:
-      static: [month, week, day]
+      static:
+      - month
+      - week
+      - day
     default: month
   platform:
     input: multiselect
@@ -27,15 +41,13 @@ variables:
     input: multiselect
     options:
       query: accounts_available
-      column: account_key
-      label_column: account_label
+      column: account_label
   api_key:
     label: Reported API Key
     input: multiselect
     options:
       query: keys_available
-      column: key_id
-      label_column: key_label
+      column: key_label
   cost_type:
     input: multiselect
     options:
@@ -46,71 +58,85 @@ queries:
     notes: Reporting history for dimension options, calendar comparisons, and date-filtered analysis.
     sql: |
       select date_day, platform, source_relation, account_id, account_name,
-        api_key_id, api_key_name, model, model_family, cost_type, cost,
+        api_key_id, api_key_name, case when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
+        when model like 'claude-%' then replace(replace(replace(replace(model,
+          'claude', 'Claude'), 'sonnet', 'Sonnet'), 'opus', 'Opus'), 'haiku', 'Haiku')
+        else model end as model, case when platform = 'claude' then 'Claude ' ||
+          upper(substr(model_family, 1, 1)) || substr(model_family, 2)
+          else replace(model_family, 'gpt-', 'GPT-') end as model_family, cost_type, cost,
         token_unit_type, unit_quantity, attribution_method,
         concat(platform, '|', source_relation, '|', account_id) as account_key,
         concat(platform, '|', source_relation, '|', api_key_id) as key_id
       from {{ ref('ai_reporting__cost_report') }}
   platforms:
-    sql: select distinct platform from {{ queries.available.cache }} order by 1
+    sql: select distinct platform from {{ queries.available }} order by 1
+    dialect: duckdb
   families:
     sql: |
-      select distinct model_family from {{ queries.available.cache }}
+      select distinct model_family from {{ queries.available }}
       where model_family is not null order by 1
+    dialect: duckdb
   models_available:
     sql: |
-      select distinct model from {{ queries.available.cache }}
+      select distinct model from {{ queries.available }}
       where model is not null order by 1
+    dialect: duckdb
   accounts_available:
     sql: |
       select account_key,
         concat(platform, ' / ', coalesce(arg_max(account_name, date_day), account_id), ' / ',
           account_id, ' / ', source_relation) as account_label
-      from {{ queries.available.cache }}
+      from {{ queries.available }}
       where account_id is not null
       group by account_key, platform, account_id, source_relation order by 2
+    dialect: duckdb
   keys_available:
     sql: |
       select key_id,
         concat(platform, ' / ', coalesce(arg_max(api_key_name, date_day), api_key_id), ' / ',
           api_key_id, ' / ', source_relation) as key_label
-      from {{ queries.available.cache }}
+      from {{ queries.available }}
       where api_key_id is not null
       group by key_id, platform, api_key_id, source_relation order by 2
+    dialect: duckdb
   cost_types:
     sql: |
-      select distinct cost_type from {{ queries.available.cache }}
+      select distinct cost_type from {{ queries.available }}
       where cost_type is not null order by 1
+    dialect: duckdb
   scoped:
     notes: Dimension-filtered history for latest-report comparisons and selected-date analysis.
     sql: |
-      select * from {{ queries.available.cache }}
+      select available.* from {{ queries.available }}
+      left join {{ queries.accounts_available }} using (account_key)
+      left join {{ queries.keys_available }} using (key_id)
       where {{ filter('platform', platform) }}
         and {{ filter('model_family', model_family) }}
         and {{ filter('model', model) }}
-        and {{ filter('account_key', account) }}
-        and {{ filter('key_id', api_key) }}
+        and {{ filter('account_label', account) }}
+        and {{ filter('key_label', api_key) }}
         and {{ filter('cost_type', cost_type) }}
+    dialect: duckdb
   spend:
     sql: |
-      select * from {{ queries.scoped.cache }}
+      select * from {{ queries.scoped }}
       where {{ filter_date_range('date_day', period) }}
+    dialect: duckdb
   summary:
     sql: |
       select sum(cost) as spend_usd,
         count(distinct (platform, source_relation, account_id))
           filter (where account_id is not null and cost <> 0) as billed_accounts,
         sum(cost) filter (where api_key_id is not null) as key_attributed_spend_usd
-      from {{ queries.spend.cache }}
+      from {{ queries.spend }}
     formats:
-      spend_usd: currency_full
-      key_attributed_spend_usd: currency_full
+      spend_usd: currency_whole
+      key_attributed_spend_usd: currency_whole
+    dialect: duckdb
   trend:
     sql: |
       with observed as (
-        select date_trunc('{{ granularity }}', date_day) as period,
-          platform, sum(cost) as spend_usd
-        from {{ queries.spend.cache }} group by 1, 2
+        select * from {{ queries.trend_observed.cache }}
       )
       select cast(dates.period as date) as period, platforms.platform,
         observed.spend_usd
@@ -122,62 +148,66 @@ queries:
       left join observed using (period, platform)
       order by 1, 2
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
   family_trend:
     sql: |
       with observed as (
-        select date_trunc('{{ granularity }}', date_day) as period,
-          coalesce(model_family, 'Unattributed') as model_family,
-          sum(cost) as spend_usd
-        from {{ queries.spend.cache }} group by 1, 2
+        select * from {{ queries.family_observed.cache }}
       )
-      select cast(dates.period as date) as period, families.model_family,
+      select cast(dates.period as date) as period, families.platform, families.model_family,
         observed.spend_usd
       from generate_series(
         (select min(period) from observed), (select max(period) from observed),
         cast('1 ' || '{{ granularity }}' as interval)
       ) as dates(period)
-      cross join (select distinct model_family from observed) families
-      left join observed using (period, model_family)
+      cross join (select distinct platform, model_family from observed) families
+      left join observed using (period, platform, model_family)
       order by 1, 2
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
   categories:
     sql: |
       select coalesce(cost_type, 'Unattributed') as cost_type, platform,
         sum(cost) as spend_usd
-      from {{ queries.spend.cache }} group by 1, 2 order by 3 desc
+      from {{ queries.spend }} group by 1, 2 order by 3 desc
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
   accounts:
     sql: |
       select platform, source_relation, account_id,
         arg_max(account_name, date_day) as account_name,
         sum(cost) as spend_usd, max(date_day) as last_reported_day
-      from {{ queries.spend.cache }} group by 1, 2, 3
+      from {{ queries.spend }} group by 1, 2, 3
       order by 5 desc nulls last, 1, 2, 3, 4 limit 100
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
   keys:
     sql: |
       select platform, source_relation, api_key_id,
         arg_max(api_key_name, date_day) as api_key_name,
         sum(cost) as spend_usd, max(date_day) as last_reported_day
-      from {{ queries.spend.cache }}
+      from {{ queries.spend }}
       where api_key_id is not null group by 1, 2, 3
       order by 5 desc nulls last, 1, 2, 3, 4 limit 100
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
   monthly:
     sql: |
-      select platform, strftime(date_day, '%Y-%m') as month,
+      select platform, cast(date_trunc('month', date_day) as date) as month,
         sum(cost) as spend_usd
-      from {{ queries.spend.cache }} group by 1, 2 order by 2, 1
+      from {{ queries.spend }} group by 1, 2 order by 2, 1
+    dialect: duckdb
   recent:
-    notes: Calendar comparisons use the latest reported day under dimension filters, independently of the date-range control.
+    notes: Calendar comparisons use the latest reported day under dimension filters, independently of
+      the date-range control.
     sql: |
       with anchor as (
-        select max(date_day) as as_of from {{ queries.scoped.cache }}
+        select max(date_day) as as_of from {{ queries.scoped }}
       )
       select strftime(max(anchor.as_of), '%b %-d, %Y') as as_of,
         sum(cost) filter (
@@ -194,12 +224,13 @@ queries:
           where date_day > anchor.as_of - interval 14 day
             and date_day <= anchor.as_of - interval 7 day
         ) as previous_7_days_usd
-      from {{ queries.scoped.cache }} cross join anchor
+      from {{ queries.scoped }} cross join anchor
     formats:
-      latest_month_usd: currency_full
-      previous_month_usd: currency_full
-      latest_7_days_usd: currency_full
-      previous_7_days_usd: currency_full
+      latest_month_usd: currency_whole
+      previous_month_usd: currency_whole
+      latest_7_days_usd: currency_whole
+      previous_7_days_usd: currency_whole
+    dialect: duckdb
   weekly_change:
     sql: |
       select latest_7_days_usd,
@@ -208,60 +239,80 @@ queries:
             / previous_7_days_usd end as change_vs_prior_week
       from {{ queries.recent.cache }}
     formats:
-      latest_7_days_usd: currency_full
+      latest_7_days_usd: currency_whole
       change_vs_prior_week: percent_delta
+    dialect: duckdb
   reporting_dates:
     sql: |
       select platform, source_relation, min(date_day) as first_reported_day,
         max(date_day) as latest_reported_day, count(distinct date_day) as reported_days
-      from {{ queries.scoped.cache }} group by 1, 2 order by 1, 2
+      from {{ queries.scoped }} group by 1, 2 order by 1, 2
+    dialect: duckdb
   monthly_mix:
     sql: |
-      select strftime(date_day, '%Y-%m') as month, platform,
+      select cast(date_trunc('month', date_day) as date) as month, platform,
         sum(cost) / nullif(sum(sum(cost)) over (
-          partition by strftime(date_day, '%Y-%m')
+          partition by cast(date_trunc('month', date_day) as date)
         ), 0) as share_of_spend
-      from {{ queries.spend.cache }}
-      where strftime(date_day, '%Y-%m') in (
-        select distinct strftime(date_day, '%Y-%m')
-        from {{ queries.spend.cache }} order by 1 desc limit 36
+      from {{ queries.spend }}
+      where cast(date_trunc('month', date_day) as date) in (
+        select distinct cast(date_trunc('month', date_day) as date)
+        from {{ queries.spend }} order by 1 desc limit 36
       )
       group by 1, 2 order by 1, 2
     formats:
       share_of_spend: percent
+    dialect: duckdb
   token_mix:
     sql: |
-      select strftime(date_day, '%Y-%m') as month,
-        concat(platform, ' / ', token_unit_type) as token_type,
+      select cast(date_trunc('month', date_day) as date) as month,
+        platform, token_unit_type,
         sum(unit_quantity) as reported_tokens
-      from {{ queries.spend.cache }}
+      from {{ queries.spend }}
       where token_unit_type is not null
-        and strftime(date_day, '%Y-%m') in (
-          select distinct strftime(date_day, '%Y-%m')
-          from {{ queries.spend.cache }} order by 1 desc limit 36
+        and cast(date_trunc('month', date_day) as date) in (
+          select distinct cast(date_trunc('month', date_day) as date)
+          from {{ queries.spend }} order by 1 desc limit 36
         )
-      group by 1, 2 order by 1, 2
+      group by 1, 2, 3 order by 1, 2, 3
+    dialect: duckdb
   token_economics:
-    notes: Realized unit costs use only rows with both cost and positive reported token quantity; non-token fees are excluded.
+    notes: Realized unit costs use only rows with both cost and positive reported token quantity; non-token
+      fees are excluded.
     sql: |
       select platform, model, token_unit_type,
         sum(unit_quantity) as reported_tokens,
         sum(cost) as matched_spend_usd,
         sum(cost) * 1000000.0 / nullif(sum(unit_quantity), 0)
           as usd_per_million_tokens
-      from {{ queries.spend.cache }}
+      from {{ queries.spend }}
       where token_unit_type is not null and unit_quantity > 0 and cost is not null
       group by 1, 2, 3 order by 5 desc, 1, 2, 3 limit 100
     formats:
-      matched_spend_usd: currency_full
+      matched_spend_usd: currency_whole
       usd_per_million_tokens: currency_full
+    dialect: duckdb
   attribution:
     sql: |
       select platform, coalesce(attribution_method, 'Not reported') as attribution,
         sum(cost) as spend_usd
-      from {{ queries.spend.cache }} group by 1, 2 order by 3 desc
+      from {{ queries.spend }} group by 1, 2 order by 3 desc
     formats:
-      spend_usd: currency_full
+      spend_usd: currency_whole
+    dialect: duckdb
+  trend_observed:
+    dialect: duckdb
+    sql: |
+      select date_trunc('{{ granularity }}', date_day) as period,
+          platform, sum(cost) as spend_usd
+        from {{ queries.spend }} group by 1, 2
+  family_observed:
+    dialect: duckdb
+    sql: |
+      select date_trunc('{{ granularity }}', date_day) as period,
+          platform, coalesce(model_family, 'Unattributed') as model_family,
+          sum(cost) as spend_usd
+        from {{ queries.spend }} group by 1, 2, 3
 charts:
   total:
     type: kpi
@@ -283,14 +334,21 @@ charts:
     query: trend
     title: Platform Spend Over Time
     notes: Absent reporting periods stay null so the line breaks at gaps.
-    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    warnings_ignore:
+    - WARN-Y-ENCODING-MOSTLY-NULL
   family_trend:
     type: line
     query: family_trend
+    x: period
+    y: spend_usd
+    color: model_family
+    multiples:
+      columns: platform
     title: Spend by Model Family Over Time
     subtitle: Unattributed means the vendor did not report a model family.
     notes: Absent reporting periods stay null so the line breaks at gaps.
-    warnings_ignore: [WARN-Y-ENCODING-MOSTLY-NULL]
+    warnings_ignore:
+    - WARN-Y-ENCODING-MOSTLY-NULL
   categories:
     type: bar
     query: categories
@@ -307,13 +365,16 @@ charts:
     type: table
     query: monthly
     title: Monthly Platform Spend
-    rows: [platform]
-    columns: [month]
-    values: [spend_usd]
+    rows:
+    - platform
+    columns:
+    - month
+    values:
+    - spend_usd
     style:
       columns:
         spend_usd:
-          format: currency_full
+          format: currency_whole
   latest_month:
     type: kpi
     query: recent
@@ -332,21 +393,25 @@ charts:
     support:
       value: change_vs_prior_week
       label: vs prior seven days
-      good: down
+    style:
+      support:
+        font:
+          color: chrome[8]
   monthly_mix:
     type: bar
     query: monthly_mix
     style:
-      axis_x:
-        type: ordinal
+      stack: zero
     title: Monthly Share of Platform Spend
     subtitle: Latest 36 reported months in the selected date range.
   token_mix:
     type: bar
     query: token_mix
-    style:
-      axis_x:
-        type: ordinal
+    x: month
+    color: platform
+    y: reported_tokens
+    multiples:
+      rows: token_unit_type
     title: Reported Token Mix by Month
     subtitle: Latest 36 reported months. Missing quantities stay unknown; non-token fees are excluded.
   token_economics:
@@ -363,64 +428,60 @@ charts:
     query: reporting_dates
     title: Reporting Dates by Connection
     subtitle: Different feed cutoffs can make combined calendar comparisons incomplete.
-  comparison_note:
-    type: callout
-    message: >-
-      Latest reporting day under the selected dimension filters:
-      {{ queries.recent.one.as_of }}. Calendar comparisons use all history under
-      those filters; the date-range control still applies to the monthly mix
-      and the other analysis tabs.
-      A missing comparison remains blank, not zero.
 tabs:
   items:
-    - title: Overview
-      rows:
-        - cols:
-            - total
-            - accounts_count
-            - keys_total
-        - trend
-        - family_trend
-        - categories
-    - title: Recent Spend
-      rows:
-        - comparison_note
-        - cols:
-            - latest_month
-            - previous_month
-            - latest_week
-        - reporting_dates
-        - monthly_mix
-    - title: Token Economics
-      rows:
-        - token_mix
-        - token_economics
-        - attribution
-    - title: Accounts and API Keys
-      text: |
-        All filters apply to this tab. API-key attribution is currently available
-        only for Claude. Missing keys do not mean zero spend: the headline on the
-        Overview tab shows how much spend has key attribution.
-      rows:
-        - accounts
-        - keys
-        - monthly
-    - title: Coverage
-      text: |
-        This board reads `ai_reporting__cost_report`: Claude platform and OpenAI
-        platform/API costs. It does not show a complete company AI bill.
+  - title: Overview
+    rows:
+    - cols:
+      - total
+      - accounts_count
+      - keys_total
+    - trend
+    - family_trend
+    - monthly_mix
+    - categories
+  - title: Recent Spend
+    rows:
+    - text: |
+        Latest reporting day under the selected dimension filters:
+        {{ queries.recent.one.as_of }}. Calendar comparisons use all history
+        under those filters. The date-range control applies to the other
+        analysis tabs. Missing comparisons remain blank, not zero.
+    - cols:
+      - latest_month
+      - previous_month
+      - latest_week
+    - reporting_dates
+  - title: Token Economics
+    rows:
+    - token_mix
+    - token_economics
+    - attribution
+  - title: Accounts and API Keys
+    text: |
+      All filters apply to this tab. API-key attribution is currently available
+      only for Claude. Missing keys do not mean zero spend: the headline on the
+      Overview tab shows how much spend has key attribution.
+    rows:
+    - accounts
+    - keys
+    - monthly
+  - title: Coverage
+    text: |
+      This board reads `ai_reporting__cost_report`: Claude platform and OpenAI
+      platform/API costs. It does not show a complete company AI bill.
 
-        Enterprise user costs and coding estimates have separate grains and
-        coverage; do not add them to this total without reconciling billing scopes.
-        OpenAI API-key attribution is unavailable in this combined model.
+      Enterprise user costs and coding estimates have separate grains and
+      coverage; do not add them to this total without reconciling billing scopes.
+      OpenAI API-key attribution is unavailable in this combined model.
 
-        The model does not include Google/Gemini or Cursor, employee departments,
-        teams, cost centers, API-key owners, finance approval tags, or budgets.
-        Those require additional sources and modeled joins. No organizational
-        attribution is inferred by these boards.
+      The model does not include Google/Gemini or Cursor, employee departments,
+      teams, cost centers, API-key owners, finance approval tags, or budgets.
+      Those require additional sources and modeled joins. No organizational
+      attribution is inferred by these boards.
 
-        The time-grain control changes the trends. Weekly periods start Monday.
-        The monthly table stays monthly. All analysis tabs share the date and
-        dimension filters. Recent Spend calendar comparisons ignore the date range
-        and anchor to the latest report under the dimension filters; an unset date range includes all available history. If the date
-        range starts or ends inside a week or month, that bucket is partial.
+      The time-grain control changes the trends. Weekly periods start Monday.
+      The monthly table stays monthly. All analysis tabs share the date and
+      dimension filters. Recent Spend calendar comparisons ignore the date range
+      and anchor to the latest report under the dimension filters; an unset date range includes all available history. If the date
+      range starts or ends inside a week or month, that bucket is partial.

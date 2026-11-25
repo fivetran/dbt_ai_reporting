@@ -1,3 +1,10 @@
+# dbt_ai_reporting v0.2.1
+
+[PR #7](https://github.com/fivetran/dbt_ai_reporting/pull/7) includes the following updates:
+
+## Feature Update
+- **AI Reporting starter boards**: Adds dbt Charts boards for platform spend comparisons, token economics, coding and enterprise/user adoption, OpenAI compliance spending estimates, and Claude interface activity, with date and dimension filters.
+
 # dbt_ai_reporting v0.2.0
 
 [PR #5](https://github.com/fivetran/dbt_ai_reporting/pull/5) includes the following updates:

@@ -5,3 +5,4 @@ new_features:
   description: Adds dbt Charts boards for platform spend comparisons, token economics,
     coding and enterprise/user adoption, OpenAI compliance spending estimates, and
     Claude interface activity, with date and dimension filters.
+date: '2026-11-25'

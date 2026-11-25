@@ -1,11 +1,29 @@
-with usage as (
+with usage_seed as (
+    select
+        {{ fivetran_utils.fill_staging_columns(
+            source_columns=adapter.get_columns_in_relation(ref('openai_codex_usage')),
+            staging_columns=openai.get_codex_usage_columns()
+        ) }}
+    from {{ ref('openai_codex_usage') }}
+),
+
+model_detail_seed as (
+    select
+        {{ fivetran_utils.fill_staging_columns(
+            source_columns=adapter.get_columns_in_relation(ref('openai_codex_usage_model')),
+            staging_columns=openai.get_codex_usage_model_columns()
+        ) }}
+    from {{ ref('openai_codex_usage_model') }}
+),
+
+usage as (
     select
         cast(start_time as date) as date_day,
         user_id,
         sum(total_uncached_text_input_token) as input_tokens,
         sum(total_cached_text_input_token) as cache_read_tokens,
         sum(total_text_output_token) as output_tokens
-    from {{ ref('openai_codex_usage') }}
+    from usage_seed
     where not _fivetran_deleted
     group by 1, 2
 ),
@@ -17,7 +35,7 @@ model_detail as (
         sum(uncached_text_input_token) as input_tokens,
         sum(cached_text_input_token) as cache_read_tokens,
         sum(text_output_token) as output_tokens
-    from {{ ref('openai_codex_usage_model') }}
+    from model_detail_seed
     where not _fivetran_deleted
     group by 1, 2
 )

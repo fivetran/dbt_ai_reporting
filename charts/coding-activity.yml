@@ -77,7 +77,7 @@ queries:
       limit 20
     formats:
       estimated_usd: currency_whole
-      codex_credits: number_full
+      codex_credits: credits_whole
     dialect: duckdb
   summary:
     sql: |
@@ -91,7 +91,7 @@ queries:
         count(total_tokens) * 1.0 / nullif(count(*), 0) as non_null_token_field_share
       from {{ queries.activity }}
     formats:
-      non_null_token_field_share: percent
+      non_null_token_field_share: percent_whole
     dialect: duckdb
   cache:
     notes: Cache share includes only rows reporting both uncached input and cache-read tokens. Cache creation
@@ -107,7 +107,7 @@ queries:
       where tokens_input is not null and tokens_cache_read is not null
         and (platform = 'openai' or tokens_cache_creation is not null)
     formats:
-      cache_read_share: percent
+      cache_read_share: percent_whole
     dialect: duckdb
   token_mix:
     sql: |

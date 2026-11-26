@@ -11,9 +11,11 @@ style:
           Claude Sonnet: category.orange
           Claude Opus: category.brown
           Claude Haiku: category.gold
-          GPT-5.2: category.blue
-          GPT-5-mini: category.cyan
-          GPT-4o: category.purple
+          Other Claude: category.orange.light
+          GPT-5.x: category.blue
+          GPT-4.x: category.cyan
+          OpenAI embeddings: category.purple
+          Other OpenAI: category.gray
 variables:
   period:
     input: daterange
@@ -58,12 +60,20 @@ queries:
     notes: Reporting history for dimension options, calendar comparisons, and date-filtered analysis.
     sql: |
       select date_day, platform, source_relation, account_id, account_name,
-        api_key_id, api_key_name, case when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
-        when model like 'claude-%' then replace(replace(replace(replace(model,
-          'claude', 'Claude'), 'sonnet', 'Sonnet'), 'opus', 'Opus'), 'haiku', 'Haiku')
-        else model end as model, case when platform = 'claude' then 'Claude ' ||
-          upper(substr(model_family, 1, 1)) || substr(model_family, 2)
-          else replace(model_family, 'gpt-', 'GPT-') end as model_family, cost_type, cost,
+        api_key_id, api_key_name, case
+          when regexp_matches(model, '^claude-[a-z]+-[0-9]+-[0-9]+(-[0-9]{8})?$')
+            then 'Claude ' || upper(substr(split_part(model, '-', 2), 1, 1))
+              || substr(split_part(model, '-', 2), 2) || ' '
+              || split_part(model, '-', 3) || '.' || split_part(model, '-', 4)
+          when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
+          else model end as model, case
+          when platform = 'claude' and model_family in ('sonnet', 'opus', 'haiku')
+            then 'Claude ' || upper(substr(model_family, 1, 1)) || substr(model_family, 2)
+          when platform = 'claude' then 'Other Claude'
+          when model_family like 'gpt-5%' then 'GPT-5.x'
+          when model_family like 'gpt-4%' then 'GPT-4.x'
+          when model_family like '%embedding%' then 'OpenAI embeddings'
+          else 'Other OpenAI' end as model_family, cost_type, cost,
         token_unit_type, unit_quantity, attribution_method,
         concat(platform, '|', source_relation, '|', account_id) as account_key,
         concat(platform, '|', source_relation, '|', api_key_id) as key_id
@@ -310,7 +320,7 @@ queries:
     dialect: duckdb
     sql: |
       select date_trunc('{{ granularity }}', date_day) as period,
-          platform, coalesce(model_family, 'Unattributed') as model_family,
+          platform, model_family,
           sum(cost) as spend_usd
         from {{ queries.spend }} group by 1, 2, 3
 charts:
@@ -332,6 +342,9 @@ charts:
   trend:
     type: line
     query: trend
+    x: period
+    y: spend_usd
+    color: platform
     title: Platform Spend Over Time
     notes: Absent reporting periods stay null so the line breaks at gaps.
     warnings_ignore:
@@ -345,7 +358,7 @@ charts:
     multiples:
       columns: platform
     title: Spend by Model Family Over Time
-    subtitle: Unattributed means the vendor did not report a model family.
+    subtitle: Families group model generations; Other includes models the vendor reported without a family. Filter by model for exact names.
     notes: Absent reporting periods stay null so the line breaks at gaps.
     warnings_ignore:
     - WARN-Y-ENCODING-MOSTLY-NULL

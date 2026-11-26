@@ -5,3 +5,5 @@ style:
         values:
           claude: category.orange
           openai: category.blue
+  formats:
+    credits_whole: ",.0f"

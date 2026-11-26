@@ -111,9 +111,11 @@ dct render charts/*.yml --dbt-project-dir integration_tests --format png
 
 Set `DBT_PROFILES_DIR` to your local profiles directory if needed. Use a date
 range that includes your test data when exercising filters. The integration
-seeds exercise model contracts; the previews below use a separate fictional
-year of activity for 300 people, including weekday patterns and both vendors.
-They do not represent customer or Fivetran usage, spend, or vendor list prices.
+seeds exercise model contracts; the previews below use
+a fictional company, Pied Piper,: a year
+of Claude and OpenAI connector data for about 100 people, with weekday patterns,
+a staged rollout, and both vendors. They do not represent customer or Fivetran
+usage, spend, or vendor list prices.
 
 ## Sample previews
 

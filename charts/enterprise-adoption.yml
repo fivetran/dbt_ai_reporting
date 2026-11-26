@@ -21,11 +21,25 @@ variables:
     options:
       query: model_options
 queries:
+  labeled:
+    dialect: duckdb
+    notes: Enterprise report with model IDs shown as vendor model names.
+    sql: |
+      select date_day, platform, source_relation, actor_user_id, actor_email,
+        product, case
+        when regexp_matches(model, '^claude-[a-z]+-[0-9]+-[0-9]+(-[0-9]{8})?$')
+          then 'Claude ' || upper(substr(split_part(model, '-', 2), 1, 1))
+            || substr(split_part(model, '-', 2), 2) || ' '
+            || split_part(model, '-', 3) || '.' || split_part(model, '-', 4)
+        when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
+        else model end as model, unit_type, unit_quantity,
+        num_model_requests, cost
+      from {{ ref('ai_reporting__enterprise_report') }}
   available:
     dialect: duckdb
     sql: |
       select distinct platform, product, model
-      from {{ ref('ai_reporting__enterprise_report') }}
+      from {{ queries.labeled }}
       where {{ filter_date_range('date_day', period) }}
   platforms:
     sql: select distinct platform from {{ queries.available.cache }} order by 1
@@ -45,7 +59,7 @@ queries:
     sql: |
       select date_day, platform, source_relation, actor_user_id, actor_email,
         product, model, unit_type, unit_quantity, num_model_requests, cost
-      from {{ ref('ai_reporting__enterprise_report') }}
+      from {{ queries.labeled }}
       where {{ filter_date_range('date_day', period) }}
         and {{ filter('platform', platform) }}
         and {{ filter('product', product) }}

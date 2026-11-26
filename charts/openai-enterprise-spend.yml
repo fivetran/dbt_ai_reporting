@@ -56,7 +56,7 @@ queries:
       from {{ queries.billing }}
     formats:
       estimated_usd: currency_whole
-      reported_credits: number_full
+      reported_credits: credits_whole
       estimate_reporting_coverage: percent_whole
     dialect: duckdb
   monthly:
@@ -82,7 +82,7 @@ queries:
       order by 3 desc nulls last, 1, 2 limit 100
     formats:
       estimated_usd: currency_whole
-      reported_credits: number_full
+      reported_credits: credits_whole
     dialect: duckdb
   users:
     sql: |
@@ -95,7 +95,7 @@ queries:
       order by 4 desc nulls last, 1, 2, 3 limit 100
     formats:
       estimated_usd: currency_whole
-      reported_credits: number_full
+      reported_credits: credits_whole
     dialect: duckdb
   sku_usage:
     sql: |
@@ -130,10 +130,18 @@ charts:
   model_costs:
     type: table
     query: model_costs
+    style:
+      columns:
+        rows_with_usd_estimate:
+          label: Rows with USD estimate
     title: Model and Product Spending Estimates
   users:
     type: table
     query: users
+    style:
+      columns:
+        rows_with_usd_estimate:
+          label: Rows with USD estimate
     title: Top 100 User Identities by Estimated Spend
   sku_usage:
     type: table
@@ -141,7 +149,7 @@ charts:
     style:
       columns:
         reported_quantity:
-          format: number_full
+          format: ",.2~f"
     title: SKU Usage and Estimated Spend
     subtitle: Quantities are summed only within their reported unit.
 tabs:

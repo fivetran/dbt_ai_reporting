@@ -48,7 +48,7 @@ queries:
           as cost_reporting_coverage
       from {{ queries.activity }}
     formats:
-      cost_reporting_coverage: percent
+      cost_reporting_coverage: percent_whole
     dialect: duckdb
   interfaces:
     sql: |

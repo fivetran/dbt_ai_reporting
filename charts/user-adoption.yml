@@ -1,0 +1,173 @@
+title: AI User Adoption
+text: |
+  Lifetime and month-to-date usage from the package's user-summary snapshot.
+  These are reported identities within each platform and source connection,
+  not deduplicated people or purchased-seat utilization. Month-to-date fields
+  follow the upstream model's reporting month; there is no arbitrary date filter.
+  Active-share metrics use identities explicitly marked not deleted and with
+  known month-to-date activity. Historical tables retain deleted identities.
+variables:
+  platform:
+    input: multiselect
+    options:
+      query: platforms
+  role:
+    input: multiselect
+    options:
+      query: roles
+queries:
+  available:
+    dialect: duckdb
+    sql: |
+      select platform, source_relation, user_id, email, role, is_user_deleted,
+        lifetime_tokens, month_to_date_tokens, lifetime_active_days,
+        month_to_date_active_days, lifetime_cost, month_to_date_cost,
+        first_active_date, last_active_date
+      from {{ ref('ai_reporting__user_summary') }}
+  platforms:
+    sql: select distinct platform from {{ queries.available }} order by 1
+    dialect: duckdb
+  roles:
+    sql: |
+      select distinct role from {{ queries.available }}
+      where role is not null order by 1
+    dialect: duckdb
+  users:
+    sql: |
+      select * from {{ queries.available }}
+      where {{ filter('platform', platform) }} and {{ filter('role', role) }}
+    dialect: duckdb
+  summary:
+    sql: |
+      select count(*) as reported_identities,
+        count(*) filter (where is_user_deleted = false
+          and month_to_date_active_days > 0) as active_this_month,
+        sum(month_to_date_tokens) as month_to_date_tokens,
+        count(*) filter (where is_user_deleted = false
+          and month_to_date_active_days > 0) * 1.0
+          / nullif(count(*) filter (where is_user_deleted = false
+            and month_to_date_active_days is not null), 0) as active_share,
+        count(*) filter (where is_user_deleted) as deleted_identities
+      from {{ queries.users }}
+    formats:
+      active_share: percent
+    dialect: duckdb
+  by_platform:
+    sql: |
+      select platform,
+        count(*) filter (where is_user_deleted = false
+          and month_to_date_active_days > 0) as active_this_month,
+        count(*) as reported_identities,
+        count(*) filter (where is_user_deleted) as deleted_identities,
+        sum(month_to_date_tokens) as month_to_date_tokens,
+        sum(lifetime_tokens) as lifetime_tokens
+      from {{ queries.users }} group by 1 order by 1
+    dialect: duckdb
+  top_users:
+    sql: |
+      select platform, source_relation, user_id, email, role,
+        month_to_date_tokens, lifetime_tokens, month_to_date_active_days,
+        lifetime_active_days, first_active_date, last_active_date, is_user_deleted
+      from {{ queries.users }}
+      order by month_to_date_tokens desc nulls last,
+        lifetime_tokens desc nulls last, platform, source_relation, user_id
+      limit 100
+    dialect: duckdb
+  role_mix:
+    sql: |
+      select coalesce(role, 'Not reported') as role, platform,
+        count(*) as reported_identities
+      from {{ queries.users }} group by 1, 2 order by 3 desc, 1, 2
+    dialect: duckdb
+  activity_distribution:
+    sql: |
+      with cohorts as (
+        select platform,
+          case when lifetime_active_days = 0 then 0
+            when lifetime_active_days = 1 then 1
+            when lifetime_active_days <= 7 then 2
+            when lifetime_active_days <= 30 then 3
+            when lifetime_active_days <= 90 then 4 else 5 end as bucket,
+          case when lifetime_active_days = 0 then '0 days'
+            when lifetime_active_days = 1 then '1 day'
+            when lifetime_active_days <= 7 then '2–7 days'
+            when lifetime_active_days <= 30 then '8–30 days'
+            when lifetime_active_days <= 90 then '31–90 days'
+            else '91+ days' end as active_days
+        from {{ queries.users }} where lifetime_active_days is not null
+      )
+      select active_days, platform, count(*) as reported_identities
+      from cohorts group by 1, 2 order by min(bucket), platform
+    dialect: duckdb
+  costs:
+    sql: |
+      select platform, source_relation, user_id, email,
+        month_to_date_cost as reported_month_to_date_cost_usd,
+        lifetime_cost as reported_lifetime_cost_usd
+      from {{ queries.users }}
+      order by month_to_date_cost desc nulls last, platform, source_relation, user_id
+      limit 100
+    formats:
+      reported_month_to_date_cost_usd: currency_whole
+      reported_lifetime_cost_usd: currency_whole
+    dialect: duckdb
+charts:
+  identities:
+    type: kpi
+    query: summary
+    value: reported_identities
+    label: Reported identities
+  active:
+    type: kpi
+    query: summary
+    value: active_this_month
+    label: Active current identities
+    support:
+      value: active_share
+      label: of current identities with activity data
+  tokens:
+    type: kpi
+    query: summary
+    value: month_to_date_tokens
+    label: Month-to-date reported tokens
+  by_platform:
+    type: table
+    query: by_platform
+    title: Adoption by Platform
+  roles:
+    type: bar
+    query: role_mix
+    title: Reported Identities by Role
+  activity_distribution:
+    type: bar
+    query: activity_distribution
+    title: Lifetime Activity Distribution
+    subtitle: Identities with reported active days, not purchased seats.
+  top_users:
+    type: table
+    query: top_users
+    title: Top 100 Users by Month-to-Date Tokens
+  costs:
+    type: table
+    query: costs
+    title: Available User-Summary Costs
+    subtitle: Claude costs only. OpenAI costs remain unavailable, not zero.
+tabs:
+  items:
+  - title: Overview
+    rows:
+    - cols:
+      - identities
+      - active
+      - tokens
+    - by_platform
+    - roles
+    - activity_distribution
+  - title: Users
+    text: |
+      Deleted identities remain included so historical usage is retained;
+      the deletion flag is shown in the table. Email addresses are displayed
+      to everyone who can view this board.
+    rows:
+    - top_users
+    - costs

@@ -1,0 +1,176 @@
+title: AI Enterprise Adoption
+text: |
+  Observed enterprise activity across Claude and OpenAI, not purchased-seat
+  utilization. Users are counted within each platform and source connection;
+  identities are not merged across vendors. Usage quantities retain their vendor
+  unit and are not summed across unlike units. OpenAI enterprise cost is not
+  available; the user table shows Claude costs separately, not a cross-vendor total.
+variables:
+  period:
+    input: daterange
+  platform:
+    input: multiselect
+    options:
+      query: platforms
+  product:
+    input: multiselect
+    options:
+      query: product_options
+  model:
+    input: multiselect
+    options:
+      query: model_options
+queries:
+  labeled:
+    dialect: duckdb
+    notes: Enterprise report with model IDs shown as vendor model names.
+    sql: |
+      select date_day, platform, source_relation, actor_user_id, actor_email,
+        product, case
+        when regexp_matches(model, '^claude-[a-z]+-[0-9]+-[0-9]+(-[0-9]{8})?$')
+          then 'Claude ' || upper(substr(split_part(model, '-', 2), 1, 1))
+            || substr(split_part(model, '-', 2), 2) || ' '
+            || split_part(model, '-', 3) || '.' || split_part(model, '-', 4)
+        when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
+        else model end as model, unit_type, unit_quantity,
+        num_model_requests, cost
+      from {{ ref('ai_reporting__enterprise_report') }}
+  available:
+    dialect: duckdb
+    sql: |
+      select distinct platform, product, model
+      from {{ queries.labeled }}
+      where {{ filter_date_range('date_day', period) }}
+  platforms:
+    sql: select distinct platform from {{ queries.available.cache }} order by 1
+    dialect: duckdb
+  product_options:
+    sql: |
+      select distinct product from {{ queries.available.cache }}
+      where product is not null order by 1
+    dialect: duckdb
+  model_options:
+    sql: |
+      select distinct model from {{ queries.available.cache }}
+      where model is not null order by 1
+    dialect: duckdb
+  activity:
+    dialect: duckdb
+    sql: |
+      select date_day, platform, source_relation, actor_user_id, actor_email,
+        product, model, unit_type, unit_quantity, num_model_requests, cost
+      from {{ queries.labeled }}
+      where {{ filter_date_range('date_day', period) }}
+        and {{ filter('platform', platform) }}
+        and {{ filter('product', product) }}
+        and {{ filter('model', model) }}
+  daily_users:
+    sql: |
+      with observed as (
+        select * from {{ queries.daily_observed.cache }}
+      )
+      select cast(days.day as date) as date_day, platforms.platform,
+        observed.active_users,
+        case when count(observed.active_users) over week = 7
+          then avg(observed.active_users) over week end as weekly_active_users
+      from generate_series(
+        (select min(date_day) from observed),
+        (select max(date_day) from observed), interval 1 day
+      ) as days(day)
+      cross join (select distinct platform from observed) platforms
+      left join observed on observed.date_day = cast(days.day as date)
+        and observed.platform = platforms.platform
+      window week as (partition by platforms.platform order by days.day
+        rows between 6 preceding and current row)
+      order by 1, 2
+    dialect: duckdb
+  products:
+    sql: |
+      select product, platform, count(*) as active_users
+      from (
+        select distinct product, platform, source_relation, actor_user_id
+        from {{ queries.activity }}
+        where actor_user_id is not null
+          and (unit_quantity > 0 or num_model_requests > 0)
+      ) users
+      group by 1, 2
+      order by 3 desc
+    dialect: duckdb
+  usage:
+    sql: |
+      select platform, product, model, unit_type, sum(unit_quantity) as usage_quantity
+      from {{ queries.activity }}
+      group by 1, 2, 3, 4
+      order by 1, 2, 4, 5 desc
+    dialect: duckdb
+  users:
+    sql: |
+      select platform, source_relation, actor_user_id,
+        arg_max(actor_email, date_day) as email,
+        count(distinct date_day) filter (
+          where unit_quantity > 0 or num_model_requests > 0
+        ) as active_days,
+        sum(cost) as reported_enterprise_cost_usd,
+        max(date_day) as last_reported_day
+      from {{ queries.activity }}
+      where actor_user_id is not null
+      group by 1, 2, 3
+      order by 5 desc, 1, 2, 3 limit 100
+    formats:
+      reported_enterprise_cost_usd: currency_whole
+    dialect: duckdb
+  daily_observed:
+    dialect: duckdb
+    sql: |
+      select date_day, platform,
+          count(distinct (source_relation, actor_user_id)) filter (
+            where actor_user_id is not null
+              and (unit_quantity > 0 or num_model_requests > 0)
+          ) as active_users
+        from {{ queries.activity }}
+        group by 1, 2
+charts:
+  daily_users:
+    type: line
+    notes: Missing reporting days are null so the line breaks rather than implying usage.
+    warnings_ignore:
+    - WARN-Y-ENCODING-MOSTLY-NULL
+    query: daily_users
+    x: date_day
+    y: active_users
+    color: platform
+    style:
+      marks:
+        line:
+          stroke:
+            width: 1
+    layers:
+    - type: line
+      y: weekly_active_users
+      color: platform
+      label: Seven-day average
+      style:
+        marks:
+          line:
+            stroke:
+              width: 3.5
+    title: Daily Active Enterprise Users
+  products:
+    type: bar
+    query: products
+    title: Active Users by Product and Platform
+    subtitle: A user can appear in more than one product.
+  usage:
+    type: table
+    query: usage
+    title: Usage by Platform, Product, Model, and Unit
+  users:
+    type: table
+    query: users
+    title: Top 100 Enterprise Users by Active Days
+    subtitle: Reported cost covers Claude only. OpenAI cost is unavailable, not zero.
+rows:
+- daily_users
+- products
+- usage
+- users

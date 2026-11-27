@@ -1,0 +1,178 @@
+title: OpenAI Enterprise Spending Estimates
+text: |
+  Estimated USD and credits from OpenAI's compliance billing report, including
+  the products present in that feed. This report overlaps Codex coding costs;
+  do not add it to the coding report or a company total without reconciling
+  billing scope. USD estimates are not invoices. Missing estimates remain blank.
+style:
+  charts:
+    color:
+      categorical:
+        palette: category-6-tonal-blue
+variables:
+  period:
+    input: daterange
+  product:
+    input: multiselect
+    options:
+      query: products
+  model:
+    input: multiselect
+    options:
+      query: models
+queries:
+  available:
+    dialect: duckdb
+    sql: |
+      select source_relation, organization_id, date_day, user_id, product,
+        surface, client, case when model like 'gpt-%' then replace(model, 'gpt-', 'GPT-')
+        when model like 'claude-%' then replace(replace(replace(replace(model,
+          'claude', 'Claude'), 'sonnet', 'Sonnet'), 'opus', 'Opus'), 'haiku', 'Haiku')
+        else model end as model, sku, quantity_unit, quantity, credits,
+        estimated_cost_usd_amount
+      from {{ ref('openai__compliance_cost_report') }}
+      where {{ filter_date_range('date_day', period) }}
+  products:
+    sql: |
+      select distinct product from {{ queries.available }}
+      where product is not null order by 1
+    dialect: duckdb
+  models:
+    sql: |
+      select distinct model from {{ queries.available }}
+      where model is not null order by 1
+    dialect: duckdb
+  billing:
+    sql: |
+      select * from {{ queries.available }}
+      where {{ filter('product', product) }} and {{ filter('model', model) }}
+    dialect: duckdb
+  summary:
+    sql: |
+      select sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) * 1.0 / nullif(count(*), 0)
+          as estimate_reporting_coverage
+      from {{ queries.billing }}
+    formats:
+      estimated_usd: currency_whole
+      reported_credits: credits_whole
+      estimate_reporting_coverage: percent_whole
+    dialect: duckdb
+  monthly:
+    sql: |
+      select cast(date_trunc('month', date_day) as date) as month, product,
+        sum(estimated_cost_usd_amount) as estimated_usd
+      from {{ queries.billing }}
+      where cast(date_trunc('month', date_day) as date) in (
+        select distinct cast(date_trunc('month', date_day) as date)
+        from {{ queries.billing }} order by 1 desc limit 36
+      )
+      group by 1, 2 order by 1, 2
+    formats:
+      estimated_usd: currency_whole
+    dialect: duckdb
+  model_costs:
+    sql: |
+      select model, product, sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) as rows_with_usd_estimate,
+        count(*) as billing_rows
+      from {{ queries.billing }} group by 1, 2
+      order by 3 desc nulls last, 1, 2 limit 100
+    formats:
+      estimated_usd: currency_whole
+      reported_credits: credits_whole
+    dialect: duckdb
+  users:
+    sql: |
+      select source_relation, organization_id, user_id,
+        sum(estimated_cost_usd_amount) as estimated_usd,
+        sum(credits) as reported_credits,
+        count(estimated_cost_usd_amount) as rows_with_usd_estimate,
+        count(*) as billing_rows, max(date_day) as last_reported_day
+      from {{ queries.billing }} group by 1, 2, 3
+      order by 4 desc nulls last, 1, 2, 3 limit 100
+    formats:
+      estimated_usd: currency_whole
+      reported_credits: credits_whole
+    dialect: duckdb
+  sku_usage:
+    sql: |
+      select product, model, sku, quantity_unit, sum(quantity) as reported_quantity,
+        sum(estimated_cost_usd_amount) as estimated_usd
+      from {{ queries.billing }} group by 1, 2, 3, 4
+      order by 1, 2, 3, 4
+    formats:
+      estimated_usd: currency_whole
+    dialect: duckdb
+charts:
+  estimated:
+    type: kpi
+    query: summary
+    value: estimated_usd
+    label: Reported USD estimates
+  credits:
+    type: kpi
+    query: summary
+    value: reported_credits
+    label: Reported credits
+  coverage:
+    type: kpi
+    query: summary
+    value: estimate_reporting_coverage
+    label: Billing rows with USD estimates
+  monthly:
+    type: bar
+    query: monthly
+    title: Monthly Enterprise Spending Estimates by Product
+    subtitle: Latest 36 reported months. Missing estimates are not zero costs.
+  model_costs:
+    type: table
+    query: model_costs
+    style:
+      columns:
+        rows_with_usd_estimate:
+          label: Rows with USD estimate
+    title: Model and Product Spending Estimates
+  users:
+    type: table
+    query: users
+    style:
+      columns:
+        rows_with_usd_estimate:
+          label: Rows with USD estimate
+    title: Top 100 User Identities by Estimated Spend
+  sku_usage:
+    type: table
+    query: sku_usage
+    style:
+      columns:
+        reported_quantity:
+          format: ",.2~f"
+    title: SKU Usage and Estimated Spend
+    subtitle: Quantities are summed only within their reported unit.
+tabs:
+  items:
+  - title: Overview
+    rows:
+    - cols:
+      - estimated
+      - credits
+      - coverage
+    - monthly
+    - model_costs
+  - title: Users and SKUs
+    rows:
+    - users
+    - sku_usage
+  - title: Coverage
+    text: |
+      Requires OpenAI compliance billing data and an enabled
+      `openai__compliance_cost_report` model. Credits and USD estimates are
+      distinct measures. The estimate coverage card counts billing rows, not
+      the percentage of the organization's complete bill captured here.
+
+      This source can overlap the Codex coding report. No cost from this board
+      is added to the platform-spend board or the Claude enterprise report.
+      User identities retain organization and connection scope.

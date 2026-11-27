@@ -341,6 +341,9 @@ seeds:
         start_time: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
     openai_codex_usage:
       +column_types:
+        total_uncached_text_input_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
+        total_cached_text_input_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
+        total_text_output_token: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"
         start_time: timestamp
         total_credit: "{{ 'float64' if target.type == 'bigquery' else 'float' }}"
         code_attribution_lines_added: "{{ 'int64' if target.type == 'bigquery' else 'bigint' }}"

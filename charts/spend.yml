@@ -347,6 +347,21 @@ charts:
     color: platform
     title: Platform Spend Over Time
     notes: Absent reporting periods stay null so the line breaks at gaps.
+    annotations:
+    - type: band
+      x: current(month)
+      text: Current month
+      plane: background
+    - type: note
+      x: max()
+      series: each
+      enclose: circle
+      style:
+        marks:
+          circle:
+            radius: 2.5
+            stroke:
+              width: 5
     warnings_ignore:
     - WARN-Y-ENCODING-MOSTLY-NULL
   family_trend:
